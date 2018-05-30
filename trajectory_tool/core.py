@@ -64,7 +64,7 @@ class TrajectoryTool(object):
         :return:
         """
         tof = epoch1 - epoch0
-        (v0, v) = iod.lambert(main_attractor.K, r0, r, tof)
+        (v0, v), = iod.lambert(main_attractor.K, r0, r, tof)
 
         return lambert_parameters(r0=r0, r1=r, v0=v0, v1=v, tof=tof,  attractor=main_attractor, epoch0=epoch0,
                                   epoch1=epoch1, ss0=None, ss1=None)
@@ -84,7 +84,7 @@ class TrajectoryTool(object):
 
         time_of_flight = ss1.epoch - ss0.epoch                                      # Input parameter TOF
         (r0, r) = zip(ss0.r, ss1.r)                                                 # Input parameters  (r0, r)
-        (v0, v) = iod.lambert(main_attractor.k, ss0.r, ss1.r, time_of_flight)       # Output parameters (v0, v)
+        (v0, v), = iod.lambert(main_attractor.k, ss0.r, ss1.r, time_of_flight)       # Output parameters (v0, v)
 
         return lambert_parameters(r0=r0, r1=r, v0=v0, v1=v, tof=time_of_flight, attractor=main_attractor,
                                   epoch0=ss0.epoch, epoch1=ss1.epoch, ss0=ss0, ss1=ss1)
