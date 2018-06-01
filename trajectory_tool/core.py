@@ -204,7 +204,6 @@ class TrajectoryTool(object):
                 v_s_p = v_s - v_p
                 v_s_p_mag = np.linalg.norm(v_s_p)
 
-
         if _mode is 'plot' or 'full':
             # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations'])):
@@ -299,18 +298,18 @@ class TrajectoryTool(object):
 if __name__ == '__main__':
     # TEST EVJP
     _test = TrajectoryTool()
-    __raw_itinerary1 = ['earth', 'venus', 'jupiter', 'pluto']
-    __raw_itinerary2 = {'id': 4332,
-                        'launch_date': datetime.datetime(2024, 1, 1, 0, 0),
-                        'durations': [1, 3.2, 11.7784]
-                        }
+    # __raw_itinerary1 = ['earth', 'venus', 'jupiter', 'pluto']
+    # __raw_itinerary2 = {'id': 4332,
+    #                     'launch_date': datetime.datetime(2024, 1, 1, 0, 0),
+    #                     'durations': [1, 3.0, 11.7784]
+    #                     }
 
     # TEST EJP
-    # __raw_itinerary1 = ['earth', 'jupiter', 'pluto']
-    # __raw_itinerary2 = {'id': 4332,
-    #                     'launch_date': datetime.datetime(2026, 1, 1, 0, 0),
-    #                     'durations': [2.5114, 19.7784]
-    #                     }
+    __raw_itinerary1 = ['earth', 'jupiter', 'pluto']
+    __raw_itinerary2 = {'id': 4332,
+                        'launch_date': datetime.datetime(2026, 1, 1, 0, 0),
+                        'durations': [2.5114, 19.7784]
+                        }
 
     # TEST EJ
     # __raw_itinerary1 = ['earth', 'jupiter']
