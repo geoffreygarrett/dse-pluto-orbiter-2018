@@ -213,16 +213,18 @@ class TrajectoryTool(object):
                                                                       _itinerary_data[i + 1]['l'].v0)
 
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
-            _itinerary_data[0]['v'] = _itinerary_data[1]['l'].v0
+            _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km/u.s)
+            _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km/u.s)
+        
             _itinerary_data[0]['dv'] = (_itinerary_data[0]['v'] - _itinerary_data[1]['l'].ss0.state.v).to(
                 u.km / u.s)
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations']) - 1):
                 #   # ARRIVAL, PLANET AND DEPARTURE VELOCITY OF BODY i (1)
-                _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1
-                _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v
-                _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0
+                _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1.to(u.km/u.s)
+                _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km/u.s)
+                _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0.to(u.km/u.s)
 
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
                 _itinerary_data[i + 1]['dv'] = np.linalg.norm(((_itinerary_data[i + 1]['v']['d'] -
