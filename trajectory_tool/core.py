@@ -171,15 +171,15 @@ class TrajectoryTool(object):
         :return: processed_itinerary:
         """
         # GENERATE PROCESSED ITINERARY STRUCTURE -----------------------------------------------------------------------
-        _itinerary_data = {}
+        _itinerary_data = [None]*(len(_raw_itinerary['durations'])+1)
 
-        _itinerary_data['0'] = {'b': body_list[_body_list[0]],
+        _itinerary_data[0] = {'b': body_list[_body_list[0]],
                                 'd': time.Time(_raw_itinerary['launch_date']),
                                 's': _body_list[0],
                                 'v': {}}
 
         for i in range(len(_raw_itinerary['durations'])):
-            _itinerary_data[str(i + 1)] = {'b': body_list[_body_list[i + 1]],
+            _itinerary_data[i + 1] = {'b': body_list[_body_list[i + 1]],
                                            'd': time.Time(_raw_itinerary['launch_date'] +
                                                           datetime.timedelta(
                                                               days=365 * _raw_itinerary['durations'][i])),
@@ -188,95 +188,102 @@ class TrajectoryTool(object):
 
         # LAMBERT SOLUTIONS --------------------------------------------------------------------------------------------
         for i in range(len(_raw_itinerary['durations'])):
-            _itinerary_data[str(i + 1)]['l'] = self.lambert_solve_from_bodies(_itinerary_data[str(i)]['b'],
-                                                                              _itinerary_data[str(i + 1)]['b'],
-                                                                              _itinerary_data[str(i)]['d'],
-                                                                              _itinerary_data[str(i + 1)]['d'])
+            _itinerary_data[i + 1]['l'] = self.lambert_solve_from_bodies(_itinerary_data[i]['b'],
+                                                                              _itinerary_data[i + 1]['b'],
+                                                                              _itinerary_data[i]['d'],
+                                                                              _itinerary_data[i + 1]['d'])
 
             # CAN TEST FOR GRAVITY ASSIST FEASIBILITY HERE (ASK GEOFF HOW)
             if i != 0:
-                curr_lambert_soln = _itinerary_data[str(i + 1)]['l']
-                prev_lambert_soln = _itinerary_data[str(i)]['l']
+                curr_lambert_soln = _itinerary_data[i + 1]['l']
+
+                prev_lambert_soln = _itinerary_data[i]['l']
+                v_s = prev_lambert_soln.v1
+                v_p = prev_lambert_soln.ss1.state.v
+
+                v_s_p = v_s - v_p
+                v_s_p_mag = np.linalg.norm(v_s_p)
+
 
         if _mode is 'plot' or 'full':
             # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations'])):
-                _itinerary_data[str(i + 1)]['t'] = Orbit.from_vectors(_itinerary_data[str(i + 1)]['l'].attractor,
-                                                                      _itinerary_data[str(i + 1)]['l'].r0,
-                                                                      _itinerary_data[str(i + 1)]['l'].v0)
+                _itinerary_data[i + 1]['t'] = Orbit.from_vectors(_itinerary_data[i + 1]['l'].attractor,
+                                                                      _itinerary_data[i + 1]['l'].r0,
+                                                                      _itinerary_data[i + 1]['l'].v0)
 
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
-            _itinerary_data['0']['v'] = _itinerary_data['1']['l'].v0
-            _itinerary_data['0']['dv'] = (_itinerary_data['0']['v'] - _itinerary_data['1']['l'].ss0.state.v).to(
+            _itinerary_data[0]['v'] = _itinerary_data[1]['l'].v0
+            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v'] - _itinerary_data[1]['l'].ss0.state.v).to(
                 u.km / u.s)
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations']) - 1):
                 #   # ARRIVAL, PLANET AND DEPARTURE VELOCITY OF BODY i (1)
-                _itinerary_data[str(i + 1)]['v']['a'] = _itinerary_data[str(i + 1)]['l'].v1
-                _itinerary_data[str(i + 1)]['v']['p'] = _itinerary_data[str(i + 1)]['l'].ss1.state.v
-                _itinerary_data[str(i + 1)]['v']['d'] = _itinerary_data[str(i + 2)]['l'].v0
+                _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1
+                _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v
+                _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0
 
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
-                _itinerary_data[str(i + 1)]['dv'] = np.linalg.norm(((_itinerary_data[str(i + 1)]['v']['d'] -
-                                                                     _itinerary_data[str(i + 1)]['v']['p']) -
-                                                                    _itinerary_data[str(i + 1)]['v']['a']).to(
+                _itinerary_data[i + 1]['dv'] = np.linalg.norm(((_itinerary_data[i + 1]['v']['d'] -
+                                                                     _itinerary_data[i + 1]['v']['p']) -
+                                                                    _itinerary_data[i + 1]['v']['a']).to(
                     u.km / u.s))
 
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
-            _itinerary_data[str(len(_raw_itinerary['durations']))]['v']['a'] = \
-                _itinerary_data[str(len(_raw_itinerary['durations']))]['l'].v1
+            _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'] = \
+                _itinerary_data[len(_raw_itinerary['durations'])]['l'].v1
 
-            _itinerary_data[str(len(_raw_itinerary['durations']))]['v']['p'] = \
-                _itinerary_data[str(len(_raw_itinerary['durations']))]['l'].ss1.state.v
+            _itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] = \
+                _itinerary_data[len(_raw_itinerary['durations'])]['l'].ss1.state.v
 
             #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (N)
-            _itinerary_data[str(len(_raw_itinerary['durations']))]['dv'] = \
-                np.linalg.norm(((_itinerary_data[str(len(_raw_itinerary['durations']))]['v']['p'] -
-                                 _itinerary_data[str(len(_raw_itinerary['durations']))]['v']['a'])).to(u.km / u.s))
+            _itinerary_data[len(_raw_itinerary['durations'])]['dv'] = \
+                np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
+                                 _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
 
         if _mode is 'plot':
             # EXTRA PROCESS FOR PLOTTING -------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations'])):
-                _itinerary_data[str(i + 1)]['tv'] = time_range(start=_itinerary_data[str(i)]['d'],
-                                                               end=_itinerary_data[str(i + 1)]['d'],
+                _itinerary_data[i + 1]['tv'] = time_range(start=_itinerary_data[i]['d'],
+                                                               end=_itinerary_data[i + 1]['d'],
                                                                periods=self.N)
 
             # GENERATE PROCESSED ITINERARY STRUCTURE -------------------------------------------------------------------
-            _itinerary_plot_data = {}
+            _itinerary_plot_data = [None]*(len(_raw_itinerary['durations'])+1)
             for i in range(len(_raw_itinerary['durations']) + 1):
-                _itinerary_plot_data[str(i)] = {}
+                _itinerary_plot_data[i] = {}
 
             # GENERATE VELOCITY AND POSITION VECTORS OF BODIES
-            _itinerary_plot_data['0']['rr'], _itinerary_plot_data['0']['vv'] = \
-                get_body_barycentric_posvel(_itinerary_data['0']['s'], _itinerary_data['1']['tv'])
+            _itinerary_plot_data[0]['rr'], _itinerary_plot_data[0]['vv'] = \
+                get_body_barycentric_posvel(_itinerary_data[0]['s'], _itinerary_data[1]['tv'])
 
             for i in range(len(_raw_itinerary['durations'])):
-                _itinerary_plot_data[str(i + 1)]['rr'], _itinerary_plot_data[str(i + 1)]['vv'] = \
-                    get_body_barycentric_posvel(_itinerary_data[str(i + 1)]['s'], _itinerary_data[str(i + 1)]['tv'])
+                _itinerary_plot_data[i + 1]['rr'], _itinerary_plot_data[i + 1]['vv'] = \
+                    get_body_barycentric_posvel(_itinerary_data[i+1]['s'], _itinerary_data[i+1]['tv'])
 
             for i in range(len(_raw_itinerary['durations'])):
-                _itinerary_plot_data[str(i + 1)]['tp'] = Orbit.from_vectors(_itinerary_data[str(i + 1)]['l'].attractor,
-                                                                            _itinerary_data[str(i + 1)]['l'].r0,
-                                                                            _itinerary_data[str(i + 1)]['l'].v0,
-                                                                            _itinerary_data[str(i + 1)]['l'].epoch0)
+                _itinerary_plot_data[i+1]['tp'] = Orbit.from_vectors(_itinerary_data[i+1]['l'].attractor,
+                                                                            _itinerary_data[i+1]['l'].r0,
+                                                                            _itinerary_data[i+1]['l'].v0,
+                                                                            _itinerary_data[i+1]['l'].epoch0)
 
             frame = OrbitPlotter()
             frame.set_attractor(Sun)
 
             for i in range(len(_raw_itinerary['durations'])):
-                frame.plot(_itinerary_data[str(i + 1)]['l'].ss0, color='0.8')
+                frame.plot(_itinerary_data[i+1]['l'].ss0, color='0.8')
 
-            frame.plot(_itinerary_data[str(len(_raw_itinerary['durations']))]['l'].ss1, color='0.8')
+            frame.plot(_itinerary_data[len(_raw_itinerary['durations'])]['l'].ss1, color='0.8')
 
             for i in range(len(_raw_itinerary['durations']) + 1):
-                frame.plot_trajectory(_itinerary_plot_data[str(i)]['rr'], label=_itinerary_data[str(i)]['b'],
+                frame.plot_trajectory(_itinerary_plot_data[i]['rr'], label=_itinerary_data[i]['b'],
                                       color=color_earth0)
 
             for i in range(len(_raw_itinerary['durations'])):
                 frame.plot_trajectory(
-                    _itinerary_plot_data[str(i + 1)]['tp'].sample(_itinerary_data[str(i + 1)]['tv'])[-1],
+                    _itinerary_plot_data[i+1]['tp'].sample(_itinerary_data[i+1]['tv'])[-1],
                     label="Leg {}".format(i + 1),
                     color=color_trans)
 
@@ -311,6 +318,6 @@ if __name__ == '__main__':
     #                     'durations': [2.5114]
     #                     }
 
-    processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot')
+    processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='fast')
     pprint(processed)
 
