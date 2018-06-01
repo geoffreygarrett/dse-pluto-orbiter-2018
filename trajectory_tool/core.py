@@ -104,7 +104,7 @@ class TrajectoryTool(object):
         :return:
         """
         tof = epoch1 - epoch0
-        (v0, v) = iod.lambert(main_attractor.K, r0, r, tof)
+        (v0, v), = iod.lambert(main_attractor.K, r0, r, tof)
 
         return lambert_parameters(r0=r0, r1=r, v0=v0, v1=v, tof=tof, attractor=main_attractor, epoch0=epoch0,
                                   epoch1=epoch1, ss0=None, ss1=None, sst=None)
