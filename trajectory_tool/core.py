@@ -215,8 +215,8 @@ class TrajectoryTool(object):
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km/u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km/u.s)
-        
-            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v'] - _itinerary_data[1]['l'].ss0.state.v).to(
+
+            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
                 u.km / u.s)
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
