@@ -182,7 +182,7 @@ class TrajectoryTool(object):
             _itinerary_data[i + 1] = {'b': body_list[_body_list[i + 1]],
                                            'd': time.Time(_raw_itinerary['launch_date'] +
                                                           datetime.timedelta(
-                                                              days=365 * _raw_itinerary['durations'][i])),
+                                                              days=365 * sum(_raw_itinerary['durations'][:i+1]))),
                                            's': _body_list[i + 1],
                                            'v': {}}
 
@@ -216,8 +216,8 @@ class TrajectoryTool(object):
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km/u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km/u.s)
 
-            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
-                u.km / u.s)
+            _itinerary_data[0]['dv'] = np.linalg.norm((_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
+                u.km / u.s))
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations']) - 1):
@@ -229,8 +229,7 @@ class TrajectoryTool(object):
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
                 _itinerary_data[i + 1]['dv'] = np.linalg.norm(((_itinerary_data[i + 1]['v']['d'] -
                                                                      _itinerary_data[i + 1]['v']['p']) -
-                                                                    _itinerary_data[i + 1]['v']['a']).to(
-                    u.km / u.s))
+                                                                    _itinerary_data[i + 1]['v']['a']))
 
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
@@ -303,7 +302,7 @@ if __name__ == '__main__':
     __raw_itinerary1 = ['earth', 'venus', 'jupiter', 'pluto']
     __raw_itinerary2 = {'id': 4332,
                         'launch_date': datetime.datetime(2024, 1, 1, 0, 0),
-                        'durations': [0.2102, 1.0114, 11.7784]
+                        'durations': [1, 3.2, 11.7784]
                         }
 
     # TEST EJP
@@ -320,6 +319,8 @@ if __name__ == '__main__':
     #                     'durations': [2.5114]
     #                     }
 
-    processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='fast')
+    processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot')
     pprint(processed)
+    print([thing['dv'] for thing in processed])
+    print([thing['d'] for thing in processed])
 
