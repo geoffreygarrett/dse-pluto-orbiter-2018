@@ -11,10 +11,15 @@ import astropy.units as u
 from astropy import time
 from poliastro.util import time_range
 from pprint import pprint
+from trajectory_tool.grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
+from scipy.optimize import minimize_scalar
+from trajectory_tool.helper import body_d_domain
 
 import numpy as np
 import datetime
 from collections import namedtuple
+from copy import deepcopy
+
 
 lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1, sst')
 # r0 = lambert_parameters.r0
@@ -59,6 +64,12 @@ class TrajectoryTool(object):
     """
 
     """
+    @staticmethod
+    def rotation_z(theta):
+        return np.array([[np.cos(theta), -np.sin(theta) , 0],
+                         [np.sin(theta),  np.cos(theta) , 0],
+                         [0            ,  0             , 1]])
+
 
     @staticmethod
     def hohmanize_lambert(lambert_function):
@@ -76,23 +87,6 @@ class TrajectoryTool(object):
         (v0, v1), = iod.lambert(main_attractor.K, r0, r1, time_of_flight)
         return v0, v1, time_of_flight
 
-    # @staticmethod
-    # def lambert_solve(method='from_positions',r1=None, r0=None, epoch0=None, epoch1=None,  body0_orbit_with_epoch=None,
-    #                   body1_orbit_with_epoch=None, body0=None, body1=None, main_attractor=Sun):
-    #
-    #     if method is 'from_positions':
-    #         required_args = (r1 and r0 and epoch0 and epoch1)
-    #         assert required_args, 'These arguments are required for the - from_positions - method.'
-    #
-    #
-    #     elif method is 'from_orbits':
-    #         required_args = (body0_orbit_with_epoch and body1_orbit_with_epoch)
-    #         assert required_args, 'These arguments are required for the - from_orbits - method.'
-    #
-    #     elif method is 'from_bodies':
-    #         required_args = (body0 and body1 and epoch0 and epoch1)
-    #         assert required_args, 'These arguments are required for the - from_bodies - method.'
-    #
     @staticmethod
     def lambert_solve_from_positions(r, r0, epoch0, epoch1, main_attractor=Sun):
         """
@@ -152,14 +146,135 @@ class TrajectoryTool(object):
         return lambert_parameters(r0=ss0.r, r1=ss1.r, v0=v0, v1=v, tof=time_of_flight, attractor=main_attractor,
                                   epoch0=ss0.epoch, epoch1=ss1.epoch, ss0=ss0, ss1=ss1, sst=sst)
 
-    # def lambert_hohman_solution(self, *args, **kwargs):
-    #     solution = self.lambert_solve_from_bodies(*args, **kwargs)
-    #     yield
 
     def __init__(self):
         self.N = 100
 
-    def process_itinerary(self, _raw_itinerary, _body_list, _mode='plot'):
+    def unit_vector(self, vector):
+        """ Returns the unit vector of the vector.  """
+        return vector / np.linalg.norm(vector)
+
+    def angle_between(self, v1, v2):
+        """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+                >>> self.angle_between((1, 0, 0), (0, 1, 0))
+                1.5707963267948966
+                >>> self.angle_between((1, 0, 0), (1, 0, 0))
+                0.0
+                >>> self.angle_between((1, 0, 0), (-1, 0, 0))
+                3.141592653589793
+        """
+        v1_u = self.unit_vector(v1)
+        v2_u = self.unit_vector(v2)
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+    def angle_between_cc(self, v1, v2):
+        """ Returns the angle dependent on defined direction from v1 to v2.
+        :param v1:
+        :param v2:
+        :param direction: Default is Clockwise.
+        :return:
+        """
+        a_i = self.angle_between(v1, v2)
+
+        # rotation check
+        v2_n = np.matmul(self.rotation_z(0.01),deepcopy(v2))
+        a_new = self.angle_between(v1, v2_n)
+        if a_new > a_i:           # Clockwise measurement
+            angle = a_i
+        else:
+            angle = 2*np.pi - a_i # Adjust for clockwise measurement
+        return angle
+
+    def lambert_solve_sequence(self, method='from_positions',r1=None, r0=None, epoch0=None, epoch1=None,
+                               body0_orbit_with_epoch=None,
+                               body1_orbit_with_epoch=None, body0=None, body1=None, main_attractor=Sun):
+
+        if method is 'from_positions':
+            required_args = (r1 and r0 and epoch0 and epoch1)
+            assert required_args, 'These arguments are required for the - from_positions - method.'
+            return self._lambert_solve_from_positions(r0, r1, epoch0, epoch1, main_attractor)
+
+        elif method is 'from_orbits':
+            required_args = (body0_orbit_with_epoch and body1_orbit_with_epoch)
+            assert required_args, 'These arguments are required for the - from_orbits - method.'
+            return self._lambert_solve_from_orbits(body0_orbit_with_epoch, body1_orbit_with_epoch, main_attractor)
+
+        elif method is 'from_bodies':
+            required_args = (body0 and body1 and epoch0 and epoch1)
+            assert required_args, 'These arguments are required for the - from_bodies - method.'
+            ss0 = Orbit.from_body_ephem(body0, epoch0)
+            ss1 = Orbit.from_body_ephem(body1, epoch1)
+            return self._lambert_solve_from_positions(ss0.r, ss1.r, epoch0, epoch1, main_attractor)
+
+    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False):
+
+        # Parse body name in lower string form for trajectory plotter.
+        body_str = body.__str__().split(' ')[0].lower()
+
+        # Calculate the s/c relative velocity to planet.
+        v_s_p_i = (v_s_i - v_p).to(u.km / u.s)
+        v_s_p_f = (v_s_f - v_p).to(u.km / u.s)
+
+        # Calculate incoming and outgoing angles relative to planet velocity vector.
+        theta_i = self.angle_between_cc(v_p, v_s_p_i)
+        theta_f = self.angle_between_cc(v_p, v_s_p_f)
+
+        # The change from incoming to outgoing.
+        delta = theta_f - theta_i
+
+        # Classical orbital parameters for hyperbolic trajectory.
+        e = 1 / np.sin(delta / 2)
+        a = -body.k.to(u.km ** 3 / u.s ** 2) / (np.dot(deepcopy(v_s_p_i), deepcopy(v_s_p_i))) / (u.km ** 2 / u.s ** 2)
+
+        # Other parameters, possibly not required at all.
+        # b = np.sqrt(np.square(a)*(e**2 - 1))
+        # d = b/np.sin(theta_i)
+
+        # Closest approach distance.
+        r_p = -a * (e - 1)
+
+        # TODO: Incorporate inspection for feasible r_p
+
+        # Sphere of influence for body.
+        r_soi = body_d_domain[body_str]['upper'] * (u.km)
+        r_atm = body_d_domain[body_str]['lower'] * (u.km)
+
+        # Transform velocity back to heliocentric reference frame.
+        v_out = np.linalg.norm(v_s_p_i) * self.unit_vector(v_s_p_f) + v_p
+
+        # Check to see if closest approach is below set body limit.
+        if r_p > r_atm:
+            dv_extra = np.linalg.norm(v_s_f-v_out)
+
+        else:
+            raise ValueError("The gravity assist is not possible...\n"
+                             "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
+            # dv_extra = None
+
+        if plot:
+            ss = OrbitPlotter()
+            ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
+            # ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
+            print(e)
+            ss_hyp = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
+                                          nu=-0.5 * u.rad, epoch=epoch)
+
+            # ss_hyp = Orbit.from_vectors(body, r=-r_soi*np.array([0.2,1,0]), v=10*(u.km/u.s)*np.array([0,1,0]), epoch=epoch)
+            tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(200 * u.day))
+            ss.plot(ss_hyp, label='test', color='0.8')
+            # ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
+
+            # val = 1.0 * np.linalg.norm(a)
+            # plt.xlim(-val, val)
+            # plt.ylim(-val, val)
+
+            plt.show()
+
+        return dv_extra
+
+    def process_itinerary(self, _raw_itinerary, _body_list, _mode='plot', _grav_ass=False):
         """
 
         :param _raw_itinerary:     raw_itinerary = {'id': int,
@@ -174,46 +289,35 @@ class TrajectoryTool(object):
         _itinerary_data = [None]*(len(_raw_itinerary['durations'])+1)
 
         _itinerary_data[0] = {'b': body_list[_body_list[0]],
-                                'd': time.Time(_raw_itinerary['launch_date']),
+                                'd': time.Time(_raw_itinerary['launch_date'], scale='tdb'),
                                 's': _body_list[0],
                                 'v': {}}
 
+        print('\n')
+        print('-'*40+'-'*len(' ID: {}'.format(_raw_itinerary['id'])))
+        print('Initializing...'.ljust(40)+' ID: {}\n'.format(_raw_itinerary['id']))
         for i in range(len(_raw_itinerary['durations'])):
+
             _itinerary_data[i + 1] = {'b': body_list[_body_list[i + 1]],
                                            'd': time.Time(_raw_itinerary['launch_date'] +
                                                           datetime.timedelta(
-                                                              days=365 * sum(_raw_itinerary['durations'][:i+1]))),
+                                                              days=365 * sum(_raw_itinerary['durations'][:i+1])),
+                                                          scale='tdb'),
                                            's': _body_list[i + 1],
                                            'v': {}}
 
         # LAMBERT SOLUTIONS --------------------------------------------------------------------------------------------
+        print('Solving Lambert multi-leg problem...'.ljust(40)+' ID: {}\n'.format(_raw_itinerary['id']))
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1]['l'] = self.lambert_solve_from_bodies(_itinerary_data[i]['b'],
                                                                               _itinerary_data[i + 1]['b'],
                                                                               _itinerary_data[i]['d'],
                                                                               _itinerary_data[i + 1]['d'])
 
-            # CAN TEST FOR GRAVITY ASSIST FEASIBILITY HERE (ASK GEOFF HOW)
-            if i != 0:
-                curr_lambert_soln = _itinerary_data[i + 1]['l']
-
-                prev_lambert_soln = _itinerary_data[i]['l']
-                v_s = prev_lambert_soln.v1
-                v_p = prev_lambert_soln.ss1.state.v
-
-                v_s_p = v_s - v_p
-                v_s_p_mag = np.linalg.norm(v_s_p)
-
-        if _mode is 'plot' or 'full':
-            # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------
-            for i in range(len(_raw_itinerary['durations'])):
-                _itinerary_data[i + 1]['t'] = Orbit.from_vectors(_itinerary_data[i + 1]['l'].attractor,
-                                                                      _itinerary_data[i + 1]['l'].r0,
-                                                                      _itinerary_data[i + 1]['l'].v0)
-
+        if (_mode is 'delta_v' or 'plot' or 'full'):
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
-            _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km/u.s)
-            _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km/u.s)
+            _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km / u.s)
+            _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km / u.s)
 
             _itinerary_data[0]['dv'] = np.linalg.norm((_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
                 u.km / u.s))
@@ -221,14 +325,19 @@ class TrajectoryTool(object):
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations']) - 1):
                 #   # ARRIVAL, PLANET AND DEPARTURE VELOCITY OF BODY i (1)
-                _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1.to(u.km/u.s)
-                _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km/u.s)
-                _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0.to(u.km/u.s)
+                _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1.to(u.km / u.s)
+                _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km / u.s)
+                _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0.to(u.km / u.s)
 
+                print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
-                _itinerary_data[i + 1]['dv'] = np.linalg.norm(((_itinerary_data[i + 1]['v']['d'] -
-                                                                     _itinerary_data[i + 1]['v']['p']) -
-                                                                    _itinerary_data[i + 1]['v']['a']))
+                _itinerary_data[i + 1]['dv'] = \
+                    self.optimise_gravity_assist(v_s_i=_itinerary_data[i + 1]['v']['a'],
+                                                 v_s_f=_itinerary_data[i + 1]['v']['d'],
+                                                 v_p=_itinerary_data[i + 1]['v']['p'],
+                                                 body=_itinerary_data[i + 1]['b'],
+                                                 epoch=_itinerary_data[i + 1]['d'],
+                                                 plot=False)
 
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
@@ -243,7 +352,21 @@ class TrajectoryTool(object):
                 np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
                                  _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
 
+            print('Delta-v result: {:0.2f} km/s'.format(
+                sum([_itinerary_data[i]['dv'] for i in range(len(_itinerary_data))])).ljust(40)
+                  + ' ID: {}\n'.format(_raw_itinerary['id']))
+
+        if (_mode is 'plot' or 'full'):
+            # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------
+            for i in range(len(_raw_itinerary['durations'])):
+                _itinerary_data[i + 1]['t'] = Orbit.from_vectors(_itinerary_data[i + 1]['l'].attractor,
+                                                                      _itinerary_data[i + 1]['l'].r0,
+                                                                      _itinerary_data[i + 1]['l'].v0)
+
+
+
         if _mode is 'plot':
+            print('Plotting...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
             # EXTRA PROCESS FOR PLOTTING -------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations'])):
                 _itinerary_data[i + 1]['tv'] = time_range(start=_itinerary_data[i]['d'],
@@ -288,38 +411,31 @@ class TrajectoryTool(object):
                     color=color_trans)
 
             plt.legend()
-
             frame._redraw_attractor(0.25 * 10 ** (8) * u.km)  # FIX SUN SIZE
+            print('Displaying plot!'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
             plt.show()
 
+        print('Complete!'.ljust(40) + ' ID: {}'.format(_raw_itinerary['id']))
+        print('-'*40+'-'*len(' ID: {}\n'.format(_raw_itinerary['id'])))
         return _itinerary_data
 
 
 if __name__ == '__main__':
-    # TEST EVJP
+
+    ####################################################################################################################
+    test = True
     _test = TrajectoryTool()
-    # __raw_itinerary1 = ['earth', 'venus', 'jupiter', 'pluto']
-    # __raw_itinerary2 = {'id': 4332,
-    #                     'launch_date': datetime.datetime(2024, 1, 1, 0, 0),
-    #                     'durations': [1, 3.0, 11.7784]
-    #                     }
+    ####################################################################################################################
+    if test:
+        for i in range(100):
 
-    # TEST EJP
-    __raw_itinerary1 = ['earth', 'jupiter', 'pluto']
-    __raw_itinerary2 = {'id': 4332,
-                        'launch_date': datetime.datetime(2026, 1, 1, 0, 0),
-                        'durations': [2.5114, 19.7784]
-                        }
+            # TEST EJP -------------------------------------------------------------------------------------------------
+            __raw_itinerary1 = ['earth','jupiter', 'pluto']
+            __raw_itinerary2 = {'id': i,
+                                'launch_date': datetime.datetime(2028, 12, 20, 0, 0),
+                                'durations': [1.67397, 22.96712]
+                                }
+            # ----------------------------------------------------------------------------------------------------------
 
-    # TEST EJ
-    # __raw_itinerary1 = ['earth', 'jupiter']
-    # __raw_itinerary2 = {'id': 4332,
-    #                     'launch_date': datetime.datetime(2026, 1, 1, 0, 0),
-    #                     'durations': [2.5114]
-    #                     }
-
-    processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot')
-    pprint(processed)
-    print([thing['dv'] for thing in processed])
-    print([thing['d'] for thing in processed])
-
+            processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='delta_v', _grav_ass=True)
+    ####################################################################################################################
