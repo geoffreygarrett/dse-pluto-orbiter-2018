@@ -60,6 +60,11 @@ body_list = {
 epo = {
     'body':Earth,
     'alt': 180 #km
+
+}
+
+ins = {
+    'sma': 2175  # km
 }
 
 
@@ -214,7 +219,7 @@ class TrajectoryTool(object):
             ss1 = Orbit.from_body_ephem(body1, epoch1)
             return self._lambert_solve_from_positions(ss0.r, ss1.r, epoch0, epoch1, main_attractor)
 
-    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False):
+    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False, verification=False):
 
         # Parse body name in lower string form for trajectory plotter.
         body_str = body.__str__().split(' ')[0].lower()
@@ -259,19 +264,17 @@ class TrajectoryTool(object):
                              "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
             # dv_extra = None
 
+        if verification:
+            # # Determine hypberbolic orbit from vectors for GMAT verification
+            b = np.sqrt(np.square(a) * (e ** 2 - 1))
+            v_in_u = self.unit_vector(v_s_p_i)
+            r_soi = r_soi
+            x_mag = np.sqrt(np.square(r_soi) - np.square(b))
+            x_vec = x_mag * np.negative(v_in_u)
+            b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
+            r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
 
-        # # Determine hypberbolic orbit from vectors for GMAT verification
-        b = np.sqrt(np.square(a) * (e ** 2 - 1))
-        v_in_u = self.unit_vector(v_s_p_i)
-        r_soi = r_soi
-        x_mag = np.sqrt(np.square(r_soi) - np.square(b))
-        x_vec = x_mag * np.negative(v_in_u)
-        b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
-        r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
 
-
-
-        # print(r_ent)
         if plot:
             ss = OrbitPlotter()
             ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
@@ -340,8 +343,15 @@ class TrajectoryTool(object):
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km / u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km / u.s)
 
-            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
-                u.km / u.s)
+            v_inf = np.linalg.norm((_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
+                    u.km / u.s).value)
+
+            body = _itinerary_data[0]['b']
+
+            r_0 = epo['alt'] + body.R.to(u.km).value
+            v_0 = np.sqrt(np.square(v_inf*(u.km/u.s))+2*body.k.to(u.km**3/u.s**2)/(r_0*(u.km)))
+
+            _itinerary_data[0]['dv'] = (v_0 - np.sqrt(body.k.to(u.km**3/u.s**2)/(r_0*(u.km)))).value
 
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
@@ -359,7 +369,7 @@ class TrajectoryTool(object):
                                                  v_p=_itinerary_data[i + 1]['v']['p'],
                                                  body=_itinerary_data[i + 1]['b'],
                                                  epoch=_itinerary_data[i + 1]['d'],
-                                                 plot=True)
+                                                 plot=False)
 
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
@@ -370,9 +380,17 @@ class TrajectoryTool(object):
                 _itinerary_data[len(_raw_itinerary['durations'])]['l'].ss1.state.v.to(u.km / u.s)
 
             #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (N)
-            _itinerary_data[len(_raw_itinerary['durations'])]['dv'] = \
-                np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
-                                 _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
+            idx_arrival = len(_raw_itinerary['durations'])
+
+            _v_0 = _itinerary_data[idx_arrival]['v']['p'].to(u.km/u.s).value- _itinerary_data[idx_arrival]['v']['a'].to(u.km/u.s).value
+            _v_orbit = np.sqrt(_itinerary_data[idx_arrival]['b'].k.to(u.km**3/u.s**2).value/ins['sma'])
+
+            _itinerary_data[idx_arrival]['dv'] = \
+                np.linalg.norm( _v_0 - _v_orbit)
+
+
+                # np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
+                #                  _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
 
 
             print('Delta-v result: {:0.2f} km/s'.format(
