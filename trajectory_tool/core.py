@@ -340,8 +340,8 @@ class TrajectoryTool(object):
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km / u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km / u.s)
 
-            _itinerary_data[0]['dv'] = np.linalg.norm((_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
-                u.km / u.s))
+            _itinerary_data[0]['dv'] = (_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
+                u.km / u.s)
 
 
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
@@ -367,7 +367,7 @@ class TrajectoryTool(object):
                 _itinerary_data[len(_raw_itinerary['durations'])]['l'].v1
 
             _itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] = \
-                _itinerary_data[len(_raw_itinerary['durations'])]['l'].ss1.state.v
+                _itinerary_data[len(_raw_itinerary['durations'])]['l'].ss1.state.v.to(u.km / u.s)
 
             #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (N)
             _itinerary_data[len(_raw_itinerary['durations'])]['dv'] = \
