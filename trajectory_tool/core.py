@@ -14,7 +14,15 @@ from astropy.coordinates import solar_system_ephemeris, get_body_barycentric_pos
 import astropy.units as u
 from astropy import time
 from poliastro.util import time_range
+<<<<<<< Updated upstream
 from trajectory_tool.helper import body_d_domain
+=======
+from pprint import pprint
+#from trajectory_tool.grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
+from grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
+from scipy.optimize import minimize_scalar
+from helper import body_d_domain
+>>>>>>> Stashed changes
 
 import numpy as np
 import datetime
@@ -214,7 +222,7 @@ class TrajectoryTool(object):
             ss1 = Orbit.from_body_ephem(body1, epoch1)
             return self._lambert_solve_from_positions(ss0.r, ss1.r, epoch0, epoch1, main_attractor)
 
-    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False):
+    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=True):
 
         # Parse body name in lower string form for trajectory plotter.
         body_str = body.__str__().split(' ')[0].lower()
@@ -461,8 +469,12 @@ if __name__ == '__main__':
             # ----------------------------------------------------------------------------------------------------------
 
             processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='delta_v', _grav_ass=True)
+<<<<<<< Updated upstream
 
 
     ####################################################################################################################
 
 
+=======
+    ####################################################################################################################
+>>>>>>> Stashed changes
