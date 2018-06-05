@@ -58,7 +58,9 @@ for idx, assist_planet in zip(range(1, len(itinerary) - 1), itinerary[1:-1]):
                                                 itinerary=itinerary,
                                                 planet_dates=case.planet_dates[:idx + 1] + temp_case.planet_dates[idx + 1:],
                                                 velocities=case.velocities[:idx + 1] + temp_case.velocities[idx + 1:],
-                                                planet_velocities=case.planet_velocities[:idx + 1] + temp_case.planet_velocities[idx + 1:])
+                                                planet_velocities=case.planet_velocities[:idx + 1] + temp_case.planet_velocities[idx + 1:],
+                                                delta_v_dep_arr=[case.delta_v_dep_arr[0], temp_case.delta_v_dep_arr[-1]],
+                                                delta_v_assists=case.delta_v_assists[:idx + 1] + temp_case.delta_v_assists[idx + 1:])
                 labels_next_save.append(key)
                 # print("({}) Joining at {} cases {} and {} (dates {} and {})".format(len(boosted_cases),
                 #                                                                     assist_planet,

@@ -43,15 +43,22 @@ batch_size = 500
 batch_init_case = cases[0]['id']
 trajectories = []
 for i, case in enumerate(cases):
-    print(i)
-    # Run case
-    result = tt.process_itinerary(case, itinerary, _mode='fast')
+    # print(i)
+    result = None
+    try:
+        result = tt.process_itinerary(case, itinerary, _mode='delta_v')
+        print('worked')
+    except ValueError as e:
+        print(e)
+        continue
     trajectories.append(Trajectory(case=case['id'], itinerary=itinerary,
                                    planet_dates=[p['d'].datetime for p in result],
                                    velocities=[result[0]['v']['d'].value,
                                                *[p['v'][k].value for p in result[1:-1] for k in ['a', 'd']],
                                                result[-1]['v']['a'].value],
-                                   planet_velocities=[p['v']['p'].value for p in result]))
+                                   planet_velocities=[p['v']['p'].value for p in result],
+                                   delta_v_dep_arr=[result[0]['dv'], result[-1]['dv']],
+                                   delta_v_assists=[p['dv'] for p in result[1:-1]]))
 
     if (i+1) % batch_size == 0:
         # Save legs until now
