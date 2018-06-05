@@ -42,11 +42,11 @@ def pseudo_distance(body1, body2, initial_epoch, dt=datetime.timedelta(days=0)):
     return rad_dist + circ_dist
 
 
-launch_window = 2029, 2030
+launch_window = 2022, 2030
 days_of_month = [1, 10, 20]
-itinerary = ['earth', 'venus', 'JUPITER_BARYCENTER', 'pluto']
+itinerary = ['earth', 'JUPITER_BARYCENTER', 'pluto']
 flight_times = np.arange(10.0, 25.0, 0.25)
-folder = "earth-venus-jupiter-pluto"
+folder = "earth-jupiter-pluto"
 
 
 launch_dates = [datetime.date(year, month, day)
@@ -60,7 +60,7 @@ ss = SolarSystem()
 def save_cases(year, cases_str):
     base_path = os.path.dirname(os.path.realpath(__file__))
     filename = "cases_{}.txt".format(year)
-    filepath = os.path.join(base_path, folder, filename)
+    filepath = os.path.join(base_path, folder, 'case_descr', filename)
     print("Saving {}".format(filepath))
     with open(filepath, 'w') as f:
         f.write("Itinerary: {}\n".format(str(itinerary)))
@@ -72,12 +72,12 @@ cases = ""
 
 # Check for previous partial case generations
 case_num = 0
-descr_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), folder, 'case_descr')
-case_descr_files = [os.path.join(descr_dir, file) for file in os.listdir(descr_dir) if 'cases' in str(file)]
-for descr_file in case_descr_files.copy():
-    with open(descr_file, 'r') as f:
-        for line in f.readlines():
-                case_num = max(case_num, eval(line.split(':')[0].strip()))
+# descr_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), folder, 'case_descr')
+# case_descr_files = [os.path.join(descr_dir, file) for file in os.listdir(descr_dir) if 'cases' in str(file)]
+# for descr_file in case_descr_files.copy():
+#     with open(descr_file, 'r') as f:
+#         for line in f.readlines():
+#                 case_num = max(case_num, eval(line.split(':')[0].strip()))
 
 for launch_date in launch_dates:
     if launch_date.month == 1 and launch_date.day == 1:

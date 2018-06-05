@@ -1,0 +1,4 @@
+trajectory_tool.egg-info/PKG-INFO
+trajectory_tool.egg-info/SOURCES.txt
+trajectory_tool.egg-info/dependency_links.txt
+trajectory_tool.egg-info/top_level.txt
