@@ -1,7 +1,11 @@
 # IMPORTS -------------------------------------------------------------------------------------------------------------
-import matplotlib.pyplot as plt
+from pprint import pprint
+from trajectory_tool.grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
+from scipy.optimize import minimize_scalar
 from matplotlib import cm
 from poliastro.frames import HeliocentricEclipticJ2000
+
+import matplotlib.pyplot as plt
 from poliastro.plotting import OrbitPlotter3D, OrbitPlotter2D, OrbitPlotter
 from poliastro.bodies import Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Body
 from poliastro.twobody import Orbit
@@ -10,9 +14,6 @@ from astropy.coordinates import solar_system_ephemeris, get_body_barycentric_pos
 import astropy.units as u
 from astropy import time
 from poliastro.util import time_range
-from pprint import pprint
-from trajectory_tool.grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
-from scipy.optimize import minimize_scalar
 from trajectory_tool.helper import body_d_domain
 
 import numpy as np
@@ -21,7 +22,7 @@ from collections import namedtuple
 from copy import deepcopy
 
 
-lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1, sst')
+lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1 sst')
 # r0 = lambert_parameters.r0
 
 plt.style.use("seaborn")
@@ -54,6 +55,11 @@ body_list = {
     'uranus': Uranus,
     'neptune': Neptune,
     'pluto': Pluto
+}
+
+epo = {
+    'body':Earth,
+    'alt': 180 #km
 }
 
 
@@ -225,7 +231,7 @@ class TrajectoryTool(object):
         delta = theta_f - theta_i
 
         # Classical orbital parameters for hyperbolic trajectory.
-        e = 1 / np.sin(delta / 2)
+        e = abs(1 / np.sin(delta / 2))
         a = -body.k.to(u.km ** 3 / u.s ** 2) / (np.dot(deepcopy(v_s_p_i), deepcopy(v_s_p_i))) / (u.km ** 2 / u.s ** 2)
 
         # Other parameters, possibly not required at all.
@@ -253,6 +259,7 @@ class TrajectoryTool(object):
                              "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
             # dv_extra = None
 
+
         # # Determine hypberbolic orbit from vectors for GMAT verification
         b = np.sqrt(np.square(a) * (e ** 2 - 1))
         v_in_u = self.unit_vector(v_s_p_i)
@@ -262,20 +269,22 @@ class TrajectoryTool(object):
         b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
         r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
 
+
+
         # print(r_ent)
         if plot:
             ss = OrbitPlotter()
             ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
             ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
             # print(e)
-            # ss_hyp = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
-            #                               nu=-0.5 * u.rad, epoch=epoch)
+            ss_hyp2 = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
+                                          nu=-0.5 * u.rad, epoch=epoch)
 
             ss_hyp = Orbit.from_vectors(body, r=r_ent, v=v_s_p_i, epoch=epoch)
             # print(ss_hyp.e)
             # assert ss_hyp.e == e
             tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
-            # ss.plot(ss_hyp, label='test', color='0.8')
+            ss.plot(ss_hyp2, label='test', color='0.8')
             ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
 
             # val = 1.0 * np.linalg.norm(a)
@@ -334,6 +343,7 @@ class TrajectoryTool(object):
             _itinerary_data[0]['dv'] = np.linalg.norm((_itinerary_data[0]['v']['d'] - _itinerary_data[0]['v']['p']).to(
                 u.km / u.s))
 
+
             # INTERMEDIATE BODIES --------------------------------------------------------------------------------------
             for i in range(len(_raw_itinerary['durations']) - 1):
                 #   # ARRIVAL, PLANET AND DEPARTURE VELOCITY OF BODY i (1)
@@ -363,6 +373,7 @@ class TrajectoryTool(object):
             _itinerary_data[len(_raw_itinerary['durations'])]['dv'] = \
                 np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
                                  _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
+
 
             print('Delta-v result: {:0.2f} km/s'.format(
                 sum([_itinerary_data[i]['dv'] for i in range(len(_itinerary_data))])).ljust(40)
@@ -449,5 +460,9 @@ if __name__ == '__main__':
                                 }
             # ----------------------------------------------------------------------------------------------------------
 
-            processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot', _grav_ass=True)
+            processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='delta_v', _grav_ass=True)
+
+
     ####################################################################################################################
+
+
