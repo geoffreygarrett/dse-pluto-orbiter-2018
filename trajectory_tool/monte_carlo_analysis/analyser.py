@@ -30,9 +30,6 @@ def find_best_case(_cases):
     _best_case = None
     _lowest_dv = 1e10
     for _case in _cases:
-        _case.delta_v_assists = [np.linalg.norm(v_in - v_out) for v_in, v_out in zip(_case.velocities[1:-2:2], _case.velocities[2:-1:2])]
-        _case.delta_v_dep_arr.append(np.linalg.norm(_case.velocities[0] - _case.planet_velocities[0]))
-        _case.delta_v_dep_arr.append(np.linalg.norm(_case.velocities[-1] - _case.planet_velocities[-1] / 24.0 / 3600.0))
         if _case.delta_v < _lowest_dv:
             _best_case = _case
             _lowest_dv = _case.delta_v

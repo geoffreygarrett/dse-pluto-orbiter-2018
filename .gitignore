@@ -11,6 +11,9 @@
 .idea*
 .idea/
 
+*case_data/
+*boosted_data/
+
 # Distribution / packaging
 #bin/
 #develop-eggs/
@@ -68,3 +71,8 @@
 *.cpython-36.pyc
 
 /.vs
+trajectory_tool/__pycache__/
+trajectory_tool/ale_solar_system/__pycache__/
+trajectory_tool/grav_ass/__pycache__/
+trajectory_tool/monte_carlo_analysis/__pycache__/
+
