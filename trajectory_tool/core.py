@@ -253,18 +253,30 @@ class TrajectoryTool(object):
                              "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
             # dv_extra = None
 
+        # # Determine hypberbolic orbit from vectors for GMAT verification
+        b = np.sqrt(np.square(a) * (e ** 2 - 1))
+        v_in_u = self.unit_vector(v_s_p_i)
+        r_soi = r_soi
+        x_mag = np.sqrt(np.square(r_soi) - np.square(b))
+        x_vec = x_mag * np.negative(v_in_u)
+        b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
+        r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
+
+        # print(r_ent)
         if plot:
             ss = OrbitPlotter()
             ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
-            # ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
-            print(e)
-            ss_hyp = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
-                                          nu=-0.5 * u.rad, epoch=epoch)
+            ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
+            # print(e)
+            # ss_hyp = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
+            #                               nu=-0.5 * u.rad, epoch=epoch)
 
-            # ss_hyp = Orbit.from_vectors(body, r=-r_soi*np.array([0.2,1,0]), v=10*(u.km/u.s)*np.array([0,1,0]), epoch=epoch)
-            tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(200 * u.day))
-            ss.plot(ss_hyp, label='test', color='0.8')
-            # ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
+            ss_hyp = Orbit.from_vectors(body, r=r_ent, v=v_s_p_i, epoch=epoch)
+            # print(ss_hyp.e)
+            # assert ss_hyp.e == e
+            tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
+            # ss.plot(ss_hyp, label='test', color='0.8')
+            ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
 
             # val = 1.0 * np.linalg.norm(a)
             # plt.xlim(-val, val)
@@ -337,7 +349,7 @@ class TrajectoryTool(object):
                                                  v_p=_itinerary_data[i + 1]['v']['p'],
                                                  body=_itinerary_data[i + 1]['b'],
                                                  epoch=_itinerary_data[i + 1]['d'],
-                                                 plot=False)
+                                                 plot=True)
 
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
@@ -437,5 +449,5 @@ if __name__ == '__main__':
                                 }
             # ----------------------------------------------------------------------------------------------------------
 
-            processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='delta_v', _grav_ass=True)
+            processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot', _grav_ass=True)
     ####################################################################################################################
