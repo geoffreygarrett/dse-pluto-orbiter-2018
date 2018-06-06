@@ -270,6 +270,14 @@ class TrajectoryTool(object):
 
 
         if plot:
+            b = np.sqrt(np.square(a) * (e ** 2 - 1))
+            v_in_u = self.unit_vector(v_s_p_i)
+            r_soi = r_soi
+            x_mag = np.sqrt(np.square(r_soi) - np.square(b))
+            x_vec = x_mag * np.negative(v_in_u)
+            b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi / 2), self.unit_vector(v_s_p_i)))
+            r_ent = r_soi.value * self.unit_vector(b_vec.value + x_vec.value) * (u.km)
+
             ss = OrbitPlotter()
             ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
             ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
@@ -469,6 +477,18 @@ if __name__ == '__main__':
             # ----------------------------------------------------------------------------------------------------------
 
             processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='delta_v', _grav_ass=True)
+
+
+            # def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False, verification=False):
+
+            _test.optimise_gravity_assist(v_s_i=processed[1]['v']['a'],
+                                          v_s_f=processed[1]['v']['d'],
+                                          v_p  =processed[1]['v']['p'],
+                                          body =processed[1]['b'],
+                                          epoch=processed[1]['d'],
+                                          plot =True
+                                          )
+
     ####################################################################################################################
 
 
