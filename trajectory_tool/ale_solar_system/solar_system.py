@@ -11,6 +11,8 @@ import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 import random
 import os
+import datetime
+from ale_solar_system.time_utils import datetime_to_jd
 
 
 class SolarSystem:
@@ -86,6 +88,7 @@ class SolarSystem:
                 continue
             else:
                 raise RuntimeError("Pair {} ({}-{}) not found".format(pair, self.element_for_id(pair[0]), self.element_for_id(pair[1])))
+
         return coordinates
 
     def distance_between(self, element1, element2, time):
@@ -136,12 +139,44 @@ class SolarSystem:
 
 if __name__ == "__main__":
     solar_system = SolarSystem()
-    solar_system.plot(['earth', 'venus', 'sun'], 2459580.5)
-    solar_system.plot(['earth', 'venus', 'sun'], 2460737.5)
+
+
+    def unit_vector(vector):
+        return vector / np.linalg.norm(vector)
+
+
+    def angle_between(vector1, vector2):
+        v1_u = unit_vector(vector1)
+        v2_u = unit_vector(vector2)
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+    vec1e = solar_system.coordinates_of('earth', datetime_to_jd(datetime.date(2018, 6, 6)))
+    vec2e = solar_system.coordinates_of('earth', datetime_to_jd(datetime.date(2018, 7, 6)))
+    vec3e = np.cross(vec1e, vec2e)
+
+    vec1p = solar_system.coordinates_of('charon', datetime_to_jd(datetime.date(2018, 6, 6)), ref_body='pluto')
+    vec2p = solar_system.coordinates_of('charon', datetime_to_jd(datetime.date(2018, 6, 15)), ref_body='pluto')
+    vec3p = np.cross(vec1p, vec2p)
+
+
+    vec_sp = solar_system.coordinates_of('pluto', datetime_to_jd(datetime.date(2018, 6, 6)))
+
+    print(unit_vector(vec3e))
+    print(unit_vector(vec3p))
+    print(unit_vector(vec_sp))
+
+    print(np.degrees(angle_between(vec3e, vec3p)))
+    print(np.degrees(angle_between(vec_sp, vec3p)))
+    print(np.cross((1, 0, 0), (0.1, 1, 0)))
+    print(np.cross((1, 0, 0), (-0.1, -1, 0)))
+
+
+    # solar_system.plot(['earth', 'venus', 'sun'], 2459580.5)
+    # solar_system.plot(['earth', 'venus', 'sun'], 2460737.5)
     # print(solar_system.distance_between('earth', 'sun', 2457061.5))
     # solar_system.animate(['pluto', 'charon', 'nix', 'hydra', 'kerberos', 'styx'], 2457061.5, 2457171.5,
-    #                      ref_body='nix', interval=.4, title="Pluto-Charon system",
-    #                      display_radius=solar_system.distance_between('pluto barycenter', 'styx', 2457061.5))
+    #                      ref_body='pluto barycenter', interval=.4, title="Pluto-Charon system",
+    #                      display_radius=solar_system.distance_between('pluto barycenter', 'nix', 2457061.5))
 
     # solar_system.animate(['sun',
     #                       'mercury',

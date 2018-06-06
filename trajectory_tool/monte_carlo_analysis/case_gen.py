@@ -44,9 +44,9 @@ def pseudo_distance(body1, body2, initial_epoch, dt=datetime.timedelta(days=0)):
 
 launch_window = 2022, 2030
 days_of_month = [1, 10, 20]
-itinerary = ['earth', 'JUPITER_BARYCENTER', 'pluto']
+itinerary = ['earth', 'earth', 'JUPITER_BARYCENTER', 'pluto']
 flight_times = np.arange(10.0, 25.0, 0.25)
-folder = "earth-jupiter-pluto"
+folder = "earth-earth-jupiter-pluto"
 
 
 launch_dates = [datetime.date(year, month, day)

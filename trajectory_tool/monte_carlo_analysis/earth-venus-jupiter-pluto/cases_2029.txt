@@ -1,2 +1,0 @@
-Itinerary: ['earth', 'venus', 'JUPITER_BARYCENTER', 'pluto']
-case #: launch date, tof of each leg

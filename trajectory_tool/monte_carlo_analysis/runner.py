@@ -11,7 +11,7 @@ from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
 
 base_path = os.path.dirname(os.path.realpath(__file__))
 
-folder = 'earth-jupiter-pluto'
+folder = 'earth-earth-jupiter-pluto'
 descr_dir = os.path.join(base_path, folder, 'case_descr')
 results_dir = os.path.join(base_path, folder, 'case_data')
 case_descr_files = [os.path.join(descr_dir, file) for file in os.listdir(descr_dir) if 'cases' in str(file)]

@@ -40,5 +40,6 @@ class Trajectory:
         if len(self.delta_v_dep_arr) == 0 or len(self.delta_v_assists) == 0:
             return None
         else:
-            return float(np.linalg.norm(sum(self.delta_v_dep_arr) + sum(self.delta_v_assists)))
+            extra_dep = self.delta_v_dep_arr[0] - 0.0
+            return float(self.delta_v_dep_arr[-1]) + float(sum(self.delta_v_assists)) + (extra_dep if extra_dep > 0.0 else 0.0)
 

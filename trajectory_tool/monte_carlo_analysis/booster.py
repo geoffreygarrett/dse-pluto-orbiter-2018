@@ -10,8 +10,6 @@ velocities.
 
 import json
 import os
-import numpy as np
-import pickle
 
 from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
 
@@ -38,7 +36,7 @@ for idx, assist_planet in zip(range(1, len(itinerary) - 1), itinerary[1:-1]):
     for case in cases:
         count_done += 1
         if len(labels_next_save) >= 10000:
-            print("Saving 10000 boosted cases ({}% done)".format(float(count_done) / ((len(itinerary) - 2) * len(cases))))
+            print("Saving 10000 boosted cases ({}% done)".format(100 * float(count_done) / ((len(itinerary) - 2) * len(cases))))
             json.dump([boosted_cases[k].get_dict() for k in labels_next_save],
                       open(os.path.join(boosted_dir, "boosted_cases_{}.json".format(index_bar)), 'w'),
                       indent=4)
@@ -69,3 +67,7 @@ for idx, assist_planet in zip(range(1, len(itinerary) - 1), itinerary[1:-1]):
                 #                                                                     case.planet_dates[idx].strftime('%Y-%m-%d'),
                 #                                                                     temp_case.planet_dates[idx].strftime('%Y-%m-%d')))
 
+if len(labels_next_save):
+    json.dump([boosted_cases[k].get_dict() for k in labels_next_save],
+              open(os.path.join(boosted_dir, "boosted_cases_{}.json".format(index_bar)), 'w'),
+              indent=4)
