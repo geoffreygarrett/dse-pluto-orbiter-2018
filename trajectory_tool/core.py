@@ -213,7 +213,7 @@ class TrajectoryTool(object):
             ss1 = Orbit.from_body_ephem(body1, epoch1)
             return self._lambert_solve_from_positions(ss0.r, ss1.r, epoch0, epoch1, main_attractor)
 
-    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False, verification=False):
+    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False, verification=False, verbose=False):
 
         # Parse body name in lower string form for trajectory plotter.
         body_str = body.__str__().split(' ')[0].lower()
@@ -267,11 +267,10 @@ class TrajectoryTool(object):
             x_vec = x_mag * np.negative(v_in_u)
             b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
             r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
-            print('Entry vector (wrt Jupiter) = ' + str(r_ent))
-            print('Incoming velocity vector (wrt Jupiter) = '+str(v_s_p_i))
-            print('Outgoing velocity vector (wrt Jupiter) = '+str(v_s_p_f))
-
-
+            if verbose:
+                print('Entry vector (wrt Jupiter) = ' + str(r_ent))
+                print('Incoming velocity vector (wrt Jupiter) = '+str(v_s_p_i))
+                print('Outgoing velocity vector (wrt Jupiter) = '+str(v_s_p_f))
 
         if plot:
             b = np.sqrt(np.square(a) * (e ** 2 - 1))
@@ -304,7 +303,7 @@ class TrajectoryTool(object):
 
         return dv_extra
 
-    def process_itinerary(self, _raw_itinerary, _body_list, _mode='plot', _grav_ass=False):
+    def process_itinerary(self, _raw_itinerary, _body_list, _mode='plot', _grav_ass=False, verbose=False):
         """
 
         :param _raw_itinerary:     raw_itinerary = {'id': int,
@@ -323,9 +322,11 @@ class TrajectoryTool(object):
                               's': _body_list[0],
                               'v': {}}
 
-        print('\n')
-        print('-' * 40 + '-' * len(' ID: {}'.format(_raw_itinerary['id'])))
-        print('Initializing...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+        if verbose:
+            print('\n')
+            print('-' * 40 + '-' * len(' ID: {}'.format(_raw_itinerary['id'])))
+            print('Initializing...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1] = {'b': body_list[_body_list[i + 1]],
                                       'd': time.Time(_raw_itinerary['launch_date'] +
@@ -336,7 +337,8 @@ class TrajectoryTool(object):
                                       'v': {}}
 
         # LAMBERT SOLUTIONS --------------------------------------------------------------------------------------------
-        print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+        if verbose:
+            print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1]['l'] = self.lambert_solve_from_bodies(_itinerary_data[i]['b'],
                                                                          _itinerary_data[i + 1]['b'],
@@ -366,7 +368,8 @@ class TrajectoryTool(object):
                 _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km / u.s)
                 _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0.to(u.km / u.s)
 
-                print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+                if verbose:
+                    print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
                 _itinerary_data[i + 1]['dv'] = \
                     self.optimise_gravity_assist(v_s_i=_itinerary_data[i + 1]['v']['a'],
@@ -397,10 +400,10 @@ class TrajectoryTool(object):
                 # np.linalg.norm(((_itinerary_data[len(_raw_itinerary['durations'])]['v']['p'] -
                 #                  _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'])).to(u.km / u.s))
 
-
-            print('Delta-v result: {:0.2f} km/s'.format(
-                sum([_itinerary_data[i]['dv'] for i in range(len(_itinerary_data))])).ljust(40)
-                  + ' ID: {}\n'.format(_raw_itinerary['id']))
+            if verbose:
+                print('Delta-v result: {:0.2f} km/s'.format(
+                    sum([_itinerary_data[i]['dv'] for i in range(len(_itinerary_data))])).ljust(40)
+                      + ' ID: {}\n'.format(_raw_itinerary['id']))
 
         if (_mode is 'plot' or 'full'):
             # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------

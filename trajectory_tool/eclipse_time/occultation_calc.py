@@ -82,6 +82,7 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
     px = []
     py = []
     pz = []
+    map_ocultation = []
     for t in np.linspace(0, orbital_period, 1000):
         x, y = orbit_coords_2d(mu, e, rp, t)
 
@@ -95,7 +96,7 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
 
         # Rotate the pluto orbit ref system so that the x-axis points towards the sun
         v_sc = np.matmul(rotation_mat_between_vectors((0.0, 0.0, 1.0), n_pc), vec_3d_p)
-        # Todo: orient y-axis or z-axis too
+        rad_dist_ocul = np.linalg.norm(np.cross(v_sc, vec_pe)) / np.linalg.norm(vec_pe)
         px.append(v_sc[0])
         py.append(v_sc[1])
         pz.append(v_sc[2])
@@ -120,11 +121,16 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
     midz = (minz + maxz) * 0.5
     mid_range = max(maxx - minx, maxy - miny, maxz - minz) * 0.5
 
+    vec_pe = unit_vector(vec_pe) * 10000000.0
+
     mpl.rcParams['legend.fontsize'] = 10
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.plot(px, py, pz, label='orbiter orbit')
     ax.plot(cx, cy, cz, label='Charon orbit')
+    ax.plot((0, vec_pe[0]), (0, vec_pe[1]), (0, vec_pe[2]), label="Earth-Pluto vector")
+    ax.scatter(*[0, 0, 0], label="Pluto", color='k')
+
     ax.set_xlim((midx - mid_range, midx + mid_range))
     ax.set_ylim((midy - mid_range, midy + mid_range))
     ax.set_zlim((midz - mid_range, midz + mid_range))
@@ -135,7 +141,7 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
 if __name__ == '__main__':
     print(get_eclipse_time(mu=8.7e11,
                            lan=np.radians(90.0),
-                           i=np.radians(45.0),
+                           i=np.radians(30.0),
                            e=0.2,
                            rp=1588000.0,
                            epoch=2458275.5))

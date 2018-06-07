@@ -3,26 +3,26 @@ Created by Alejandro Daniel Noel
 """
 
 import datetime
-import os
 import json
-from trajectory_tool.TestSolutionsMatt import sols2send_1, sols2send_2, sols2send_3, sols2send_4
+import os
 
+from trajectory_tool.TestSolutionsMatt import sols2send_2
 from trajectory_tool.core import TrajectoryTool
 from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
+
 
 def save_legs(_init_case, _case_num, _trajectories, results_dir):
     json.dump(_trajectories, open(os.path.join(results_dir, "cases_{}-{}.json".format(_init_case, _case_num)), "w"), indent=4)
 
 
 def do_runner(itinerary_folder):
-
     base_path = os.path.dirname(os.path.realpath(__file__))
 
     folder = itinerary_folder
     descr_dir = os.path.join(base_path, folder, 'case_descr')
     results_dir = os.path.join(base_path, folder, 'case_data')
 
-    #CREATES DIRECTORY IF IT DOESN NOT EXIST
+    # CREATES DIRECTORY IF IT DOESN NOT EXIST
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
@@ -45,7 +45,6 @@ def do_runner(itinerary_folder):
                                       'durations': eval(line.split(':')[1].split(',', maxsplit=1)[1].strip())})
                         next_case += 1
 
-
     # Compute legs
     tt = TrajectoryTool()
     batch_size = 500
@@ -58,7 +57,6 @@ def do_runner(itinerary_folder):
             result = tt.process_itinerary(case, itinerary, _mode='delta_v')
             print('worked')
         except ValueError as e:
-            print(e)
             continue
         trajectories.append(Trajectory(case=case['id'], itinerary=itinerary,
                                        planet_dates=[p['d'].datetime for p in result],
@@ -69,7 +67,7 @@ def do_runner(itinerary_folder):
                                        delta_v_dep_arr=[result[0]['dv'], result[-1]['dv']],
                                        delta_v_assists=[p['dv'] for p in result[1:-1]]))
 
-        if (i+1) % batch_size == 0:
+        if (i + 1) % batch_size == 0:
             # Save legs until now
             save_legs(batch_init_case, case['id'], [t.get_dict() for t in trajectories], results_dir)
             batch_init_case = case['id'] + 1
@@ -78,7 +76,9 @@ def do_runner(itinerary_folder):
     # final save
     if len(trajectories):
         save_legs(batch_init_case, cases[-1]['id'], [t.get_dict() for t in trajectories], results_dir)
-#print(sols2send)
+
+
+# print(sols2send)
 
 def connect(itinerary_list):
     itinerary_string = ''
@@ -89,17 +89,15 @@ def connect(itinerary_list):
             itinerary_string += body + '-'
     return itinerary_string
 
+
 # print(connect(sols2send_1[0]))
 
-#EDIT THE X FOR A NEW SOLUTION RUN
+# EDIT THE X FOR A NEW SOLUTION RUN
 sols_string = []
-for sol in sols2send_X:
+for sol in sols2send_2:
     sol_string = connect(sol)
     sols_string.append(sol_string)
     print(sols_string)
 
 for sol in sols_string:
     do_runner(sol)
-
-
-
