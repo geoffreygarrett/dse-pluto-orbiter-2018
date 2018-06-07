@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Itinerary: ['earth', 'jupiter', 'pluto']
 case #: launch date, tof of each leg
 0     : 2022-01-01, [1.1575744804021373, 8.842425519597864]
@@ -2160,3 +2161,7 @@ case #: launch date, tof of each leg
 2157  : 2022-12-20, [0.9144291968913563, 23.33557080310864]
 2158  : 2022-12-20, [0.9347371770271866, 23.565262822972812]
 2159  : 2022-12-20, [0.9552961495670738, 23.794703850432928]
+=======
+Itinerary: ['earth', 'JUPITER_BARYCENTER', 'pluto']
+case #: launch date, tof of each leg
+>>>>>>> gravity_assist_dev
