@@ -6,7 +6,7 @@ import datetime
 import json
 import os
 
-from trajectory_tool.TestSolutionsMatt import sols2send_2
+from trajectory_tool.TestSolutionsMatt import sols2send_2, sols2send_4
 from trajectory_tool.core import TrajectoryTool
 from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
 
@@ -94,7 +94,7 @@ def connect(itinerary_list):
 
 # EDIT THE X FOR A NEW SOLUTION RUN
 sols_string = []
-for sol in sols2send_2:
+for sol in sols2send_4:
     sol_string = connect(sol)
     sols_string.append(sol_string)
     print(sols_string)

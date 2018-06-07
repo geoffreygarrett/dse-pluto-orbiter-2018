@@ -53,9 +53,9 @@ if __name__ == "__main__":
     for results_file in results_files:
         cases += [Trajectory.from_dict(case_dict) for case_dict in json.load(open(results_file, 'r'))]
 
-    boosted_cases = []
-    for boosted_file in boosted_files:
-        boosted_cases += [Trajectory.from_dict(case_dict) for case_dict in json.load(open(boosted_file, 'r'))]
+    # boosted_cases = []
+    # for boosted_file in boosted_files:
+    #     boosted_cases += [Trajectory.from_dict(case_dict) for case_dict in json.load(open(boosted_file, 'r'))]
 
     cases_porkchop = cases
 

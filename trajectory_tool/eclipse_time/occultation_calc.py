@@ -50,9 +50,11 @@ def orbit_coords_2d(mu, e, rp, t):
     return p, q
 
 
-def get_eclipse_time(mu, lan, i, e, rp, epoch):
+def get_eclipse_time(mu, r_b, lan, i, e, rp, epoch):
     """
     Returns duration of earth occultation during one orbit
+    :param mu: gravitational parameter
+    :param r_b: radius of the planet
     :param lan: longitude of ascending node of the orbiter
     :param i: inclination of the orbiter
     :param e: eccentricity of the orbiter
@@ -79,11 +81,9 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
     a = rp / (1 - e)
     orbital_period = 2 * np.pi * np.sqrt(a ** 3 / mu)
 
-    px = []
-    py = []
-    pz = []
-    map_ocultation = []
-    for t in np.linspace(0, orbital_period, 1000):
+    vec_sc = []
+    mask_occultation = []
+    for t in np.linspace(0, orbital_period, 100):
         x, y = orbit_coords_2d(mu, e, rp, t)
 
         c_o, s_o = np.cos(lan), np.sin(lan)
@@ -93,42 +93,40 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
                             [0, s_i, c_i]])
 
         vec_3d_p = np.matmul(rot_mat, (x, y, 0))    # apply inclination and longitude of ascending node
-
         # Rotate the pluto orbit ref system so that the x-axis points towards the sun
-        v_sc = np.matmul(rotation_mat_between_vectors((0.0, 0.0, 1.0), n_pc), vec_3d_p)
-        rad_dist_ocul = np.linalg.norm(np.cross(v_sc, vec_pe)) / np.linalg.norm(vec_pe)
-        px.append(v_sc[0])
-        py.append(v_sc[1])
-        pz.append(v_sc[2])
+        new_vec_sc = np.matmul(rotation_mat_between_vectors((0.0, 0.0, 1.0), n_pc), vec_3d_p)
+        rad_dist_ocul = np.linalg.norm(np.cross(new_vec_sc, vec_pe)) / np.linalg.norm(vec_pe)
+        print(np.linalg.norm(vec_3d_p), rad_dist_ocul)
+        mask_occultation.append(rad_dist_ocul <= r_b and angle_between(vec_pe, new_vec_sc) < np.pi * 0.5)
+        vec_sc.append(new_vec_sc)
 
-    cx = []
-    cy = []
-    cz = []
-    for t in np.linspace(0.0, 7.0, 1000):
+    vec_charon = []
+    for t in np.linspace(0.0, 7.0, 100):
         vcs = ss.coordinates_of('charon', epoch + t, ref_body='pluto') * 1000
-        cx.append(vcs[0])
-        cy.append(vcs[1])
-        cz.append(vcs[2])
+        vec_charon.append(vcs)
 
-    minx = min(px + cx)
-    miny = min(py + cy)
-    minz = min(pz + cz)
-    maxx = max(px + cx)
-    maxy = max(py + cy)
-    maxz = max(pz + cz)
+    minx = min(vec_sc[0] + vec_charon[0])
+    miny = min(vec_sc[1] + vec_charon[1])
+    minz = min(vec_sc[2] + vec_charon[2])
+    maxx = max(vec_sc[0] + vec_charon[0])
+    maxy = max(vec_sc[1] + vec_charon[1])
+    maxz = max(vec_sc[2] + vec_charon[2])
     midx = (minx + maxx) * 0.5
     midy = (miny + maxy) * 0.5
     midz = (minz + maxz) * 0.5
     mid_range = max(maxx - minx, maxy - miny, maxz - minz) * 0.5
 
     vec_pe = unit_vector(vec_pe) * 10000000.0
+    vec_ps = unit_vector(vec_ps) * 10000000.0
 
     mpl.rcParams['legend.fontsize'] = 10
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.plot(px, py, pz, label='orbiter orbit')
-    ax.plot(cx, cy, cz, label='Charon orbit')
+    for x, y, z, mask in zip(*list(zip(*vec_sc)), mask_occultation):
+        ax.scatter(x, y, z, color='red' if mask else 'green', marker='.')
+    ax.plot(*list(zip(*vec_charon)), label='Charon orbit')
     ax.plot((0, vec_pe[0]), (0, vec_pe[1]), (0, vec_pe[2]), label="Earth-Pluto vector")
+    ax.plot((0, vec_ps[0]), (0, vec_ps[1]), (0, vec_ps[2]), label="Sun-Pluto vector")
     ax.scatter(*[0, 0, 0], label="Pluto", color='k')
 
     ax.set_xlim((midx - mid_range, midx + mid_range))
@@ -140,8 +138,9 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
 
 if __name__ == '__main__':
     print(get_eclipse_time(mu=8.7e11,
-                           lan=np.radians(90.0),
-                           i=np.radians(30.0),
-                           e=0.2,
+                           r_b=1188000.0,
+                           lan=np.radians(20.0),
+                           i=np.radians(73.0),
+                           e=0.25,
                            rp=1588000.0,
                            epoch=2458275.5))
