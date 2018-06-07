@@ -2,7 +2,7 @@
 # Creates variables to input to the GMAT script
 #======================================================================================================================================
 import numpy as np
-import core
+import trajectory_tool.core
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -14,12 +14,12 @@ from astropy.coordinates import solar_system_ephemeris
 from astropy import time
 import math
 from astropy import units as u
-from core import TrajectoryTool
+from trajectory_tool.core import TrajectoryTool
 
 
 import datetime
 from collections import namedtuple
-from grav_ass import Hyperbolic_calculator_resources_v0p3
+#from grav_ass import Hyperbolic_calculator_resources_v0p3
 
 
 def state_to_vector(ss):
@@ -67,25 +67,55 @@ _test = TrajectoryTool()
 # TEST EJP -------------------------------------------------------------------------------------------------
 __raw_itinerary1 = ['earth', 'jupiter', 'pluto']
 __raw_itinerary2 = {'id': 0,
-                    'launch_date': datetime.datetime(2028, 12, 20, 0, 0),
-                    'durations': [1.67397, 22.96712]
+                    'launch_date': datetime.datetime(2027, 12, 1, 0, 0),
+                    'durations': [2.115, 22.852]
                     }
 # ----------------------------------------------------------------------------------------------------------
 
 processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='plot', _grav_ass=True)
 
-jup_part = processed[1]
-epoch = (jup_part['l']).epoch1
-print('Epoch of arrival = ' + str(epoch))
-#%%
-
-v_s_i = jup_part['v']['a']
-v_s_f = jup_part['v']['d']
-v_p = v_s_f = jup_part['v']['p']
-body = jup_part['b']
-epoch = jup_part['d']
+# jup_part = processed[1]
+# epoch = (jup_part['l']).epoch1
+# print('Epoch of arrival = ' + str(epoch))
+# #%%
+#
+# v_s_i = jup_part['v']['a']
+# v_s_f = jup_part['v']['d']
+# v_p = v_s_f = jup_part['v']['p']
+# body = jup_part['b']
+# epoch = jup_part['d']
 tt = TrajectoryTool()
-
+#%%
 #opass = TrajectoryTool.optimise_gravity_assist
 #opass(TrajectoryTool, v_s_i, v_s_f, v_p, body, epoch)
-tt.optimise_gravity_assist(v_s_i, v_s_f, v_p, body, epoch)
+tt.optimise_gravity_assist(v_s_i=processed[1]['v']['a'],
+                              v_s_f=processed[1]['v']['d'],
+                              v_p=processed[1]['v']['p'],
+                              body=processed[1]['b'],
+                              epoch=processed[1]['d'],
+                              plot=False,
+                              verification=True
+                              )
+
+for i in range(len(processed)):
+    print('-                                             -')
+    print('Epoch of arrival = ' + str(processed[i]['d']))
+    print('Body = '+str(processed[i]['b']))
+    if i == 0:
+        ss = processed[1]['l'].sst
+        posvec, velvec = state_to_vector(ss)
+        print('Position Vector = '+str(posvec))
+        print('Epoch at sst = '+str(ss.epoch))
+    if i != 0:
+        print('Incoming velocity vector = '+str(processed[i]['v']['a']))
+    if i != len(processed)-1:
+        print('Outgoing velocity vector = '+str(processed[i]['v']['d']))
+    print('Planetary velocity vector = '+str(processed[i]['v']['p']))
+
+#%%
+
+a=6992863713.300394
+b=1336628199.534705
+c=-1449298454.956082
+
+print(str(np.sqrt(a**2+b**2+c**2)))

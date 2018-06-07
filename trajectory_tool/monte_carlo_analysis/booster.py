@@ -18,6 +18,12 @@ folder = 'earth-jupiter-pluto'
 base_path = os.path.dirname(os.path.realpath(__file__))
 results_dir = os.path.join(base_path, folder, 'case_data')
 boosted_dir = os.path.join(base_path, folder, 'boosted_data')
+
+# CREATES DIRECTORY IF IT DOESN NOT EXIST
+directory = boosted_dir
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
 results_files = [os.path.join(results_dir, file) for file in os.listdir(results_dir) if 'cases' in str(file)]
 itinerary = folder.split('-')
 

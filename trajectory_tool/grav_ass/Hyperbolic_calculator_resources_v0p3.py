@@ -9,7 +9,7 @@ CHANGELOG
 @author: matth
 """
 import numpy as np
-import core
+from trajectory_tool import core
 import matplotlib.pyplot as plt
 from matplotlib import cm
 

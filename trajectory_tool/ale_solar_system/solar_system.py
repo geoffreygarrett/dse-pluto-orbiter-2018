@@ -12,7 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import random
 import os
 import datetime
-from ale_solar_system.time_utils import datetime_to_jd
+from trajectory_tool.ale_solar_system.time_utils import datetime_to_jd
 
 
 class SolarSystem:
@@ -23,8 +23,11 @@ class SolarSystem:
         'VENUS_BARYCENTER': [2, 'plu055.bsp'],
         'EARTH_BARYCENTER': [3, 'plu055.bsp'],
         'MARS_BARYCENTER': [4, 'plu055.bsp'],
+        'MARS': [4, 'plu055.bsp'],
         'JUPITER_BARYCENTER': [5, 'plu055.bsp'],
+        'JUPITER': [5, 'plu055.bsp'],
         'SATURN_BARYCENTER': [6, 'plu055.bsp'],
+        'SATURN': [6, 'plu055.bsp'],
         'URANUS_BARYCENTER': [7, 'plu055.bsp'],
         'NEPTUNE_BARYCENTER': [8, 'plu055.bsp'],
         'PLUTO_BARYCENTER': [9, 'plu055.bsp'],
