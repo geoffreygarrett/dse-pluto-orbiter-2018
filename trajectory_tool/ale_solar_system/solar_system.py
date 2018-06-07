@@ -77,6 +77,9 @@ class SolarSystem:
         return nx.shortest_path(self.adjacency, self.id_for_body(target_body), self.id_for_body(reference_body))
 
     def coordinates_of(self, body, time, ref_body='sun'):
+        """
+        Returns coordinates of requested body wrt to ref_body (default to Sun) in km
+        """
         index_path = self.__sequence_between_bodies(body, ref_body)
         coordinates = np.zeros(3)
         for i in range(len(index_path) - 1):
@@ -152,6 +155,9 @@ if __name__ == "__main__":
         v1_u = unit_vector(vector1)
         v2_u = unit_vector(vector2)
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+    print(np.linalg.norm(solar_system.coordinates_of('earth', datetime_to_jd(datetime.date(2018, 6, 6)))))
+    exit()
 
     vec1e = solar_system.coordinates_of('earth', datetime_to_jd(datetime.date(2018, 6, 6)))
     vec2e = solar_system.coordinates_of('earth', datetime_to_jd(datetime.date(2018, 7, 6)))

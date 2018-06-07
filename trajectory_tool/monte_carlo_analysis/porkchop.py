@@ -40,7 +40,7 @@ def plot_porkchop(X, Y, Z):
 
 if __name__ == "__main__":
 
-    folder = 'earth-mars-saturn-pluto'
+    folder = 'earth-mars-earth-jupiter-pluto'
 
     base_path = os.path.dirname(os.path.realpath(__file__))
     results_dir = os.path.join(base_path, folder, 'case_data')

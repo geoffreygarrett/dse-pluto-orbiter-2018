@@ -85,17 +85,17 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
     for t in np.linspace(0, orbital_period, 1000):
         x, y = orbit_coords_2d(mu, e, rp, t)
 
-        # rotate by inclination
-        z = np.sin(i) * x
-        x = np.cos(i) * x
+        c_o, s_o = np.cos(lan), np.sin(lan)
+        c_i, s_i = np.cos(i), np.sin(i)
+        rot_mat = np.array([[c_o, -s_o * c_i, s_o * s_i],
+                            [s_o, c_o * c_i, -c_o * s_i],
+                            [0, s_i, c_i]])
 
-        # rotate by longitude of ascending node
-        x = np.cos(lan) * x - np.sin(lan) * y
-        y = np.sin(lan) * x + np.cos(lan) * y
+        vec_3d_p = np.matmul(rot_mat, (x, y, 0))    # apply inclination and longitude of ascending node
 
-        # rotate to solar system ref. sys (align x-axis of pluto orbit ref system to vec_ps)
-        # Then translate to the pluto-charon system
-        v_sc = np.matmul(rotation_mat_between_vectors(np.array((1, 0, 0)), vec_ps), (x, y, z))
+        # Rotate the pluto orbit ref system so that the x-axis points towards the sun
+        v_sc = np.matmul(rotation_mat_between_vectors((0.0, 0.0, 1.0), n_pc), vec_3d_p)
+        # Todo: orient y-axis or z-axis too
         px.append(v_sc[0])
         py.append(v_sc[1])
         pz.append(v_sc[2])
@@ -109,11 +109,25 @@ def get_eclipse_time(mu, lan, i, e, rp, epoch):
         cy.append(vcs[1])
         cz.append(vcs[2])
 
+    minx = min(px + cx)
+    miny = min(py + cy)
+    minz = min(pz + cz)
+    maxx = max(px + cx)
+    maxy = max(py + cy)
+    maxz = max(pz + cz)
+    midx = (minx + maxx) * 0.5
+    midy = (miny + maxy) * 0.5
+    midz = (minz + maxz) * 0.5
+    mid_range = max(maxx - minx, maxy - miny, maxz - minz) * 0.5
+
     mpl.rcParams['legend.fontsize'] = 10
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.plot(px, py, pz, label='orbiter orbit')
     ax.plot(cx, cy, cz, label='Charon orbit')
+    ax.set_xlim((midx - mid_range, midx + mid_range))
+    ax.set_ylim((midy - mid_range, midy + mid_range))
+    ax.set_zlim((midz - mid_range, midz + mid_range))
     ax.legend()
     plt.show()
 
