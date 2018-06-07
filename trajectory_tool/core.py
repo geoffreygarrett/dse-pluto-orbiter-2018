@@ -267,6 +267,10 @@ class TrajectoryTool(object):
             x_vec = x_mag * np.negative(v_in_u)
             b_vec = b * np.negative(np.matmul(self.rotation_z(np.pi/2), self.unit_vector(v_s_p_i)))
             r_ent = r_soi.value * self.unit_vector(b_vec.value+x_vec.value)*(u.km)
+            print('Entry vector (wrt Jupiter) = ' + str(r_ent))
+            print('Incoming velocity vector (wrt Jupiter) = '+str(v_s_p_i))
+            print('Outgoing velocity vector (wrt Jupiter) = '+str(v_s_p_f))
+
 
 
         if plot:
