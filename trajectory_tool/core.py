@@ -1,6 +1,16 @@
 import datetime
 from collections import namedtuple
 from copy import deepcopy
+# import networkx
+import plotly.plotly as py
+import plotly.graph_objs as go
+
+import plotly.plotly as py
+import plotly.figure_factory as FF
+import plotly.graph_objs as go
+
+import numpy as np
+from scipy.spatial import Delaunay
 
 key = 'kHLfFnsPiyxyAfWXgLN6'
 user = 'Jones1311'
@@ -12,6 +22,7 @@ import plotly
 plotly.tools.set_credentials_file(username=user, api_key=key)
 # init_notebook_mode(connected=True)
 
+# from trajectory_tool.monte_carlo_analysis.case_gen import pseudo_distance
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -90,10 +101,41 @@ class TrajectoryTool(object):
                          [np.sin(theta), np.cos(theta), 0],
                          [0, 0, 1]])
 
-    @staticmethod
-    def hohmanize_lambert(lambert_function):
+    # @staticmethod
+    def hohmanize_lambert(self, body0, body1, epoch0, main_attractor=Sun):
+        flight_times = np.arange(0.25, 20, 0.25)
+        lambert_solutions = []
+        v_planet_list = []
+        epoch0time = time.Time(epoch0, scale='tdb')
+        ss0 = Orbit.from_body_ephem(body0, epoch0time)
 
-        pass
+        x = []
+        y = []
+        z = []
+        temp = np.arange(0.25, 20, 0.25)
+        epochee = [epoch0 + time.TimeDelta(365*u.d*j) for j in temp]
+
+        for idx, epoch in enumerate(epochee):
+            epoch0 = epoch
+            x.append(temp[idx])
+
+            for tof in flight_times:
+                epoch1 = epoch0 + time.TimeDelta(tof*u.d*365, scale='tdb')
+                _tof = epoch1-epoch0
+                print(epoch1)
+                print(epoch0)
+                ss1 = Orbit.from_body_ephem(body1, epoch1)
+                (v0, v), = iod.lambert(main_attractor.k, ss0.r, ss1.r, _tof)
+                lambert_solutions.append((v0, v))
+                print(v0, v)
+                v_planet_list.append(ss1.state.v.to(u.km/u.s))
+                y.append(tof)
+
+            for lambert, v_planet in zip(lambert_solutions, v_planet_list):
+                print(np.linalg.norm(v_planet.to(u.km/u.s) - lambert[1].to(u.km/u.s)))
+                z.append(np.linalg.norm(v_planet.to(u.km/u.s) - lambert[1].to(u.km/u.s)))
+
+
 
     @staticmethod
     def _lambert_solve_from_positions(r0, r1, epoch0, epoch1, main_attractor):
@@ -226,8 +268,6 @@ class TrajectoryTool(object):
             return self._lambert_solve_from_positions(ss0.r, ss1.r, epoch0, epoch1, main_attractor)
 
     def refined_processing_itinerary(self, _raw_itinerary, _body_list, _mode='plot'):
-
-
         _itinerary_data = [None] * (len(_raw_itinerary['durations']) + 1)
 
         _itinerary_data[0] = {'b': body_list[_body_list[0]],
@@ -249,6 +289,7 @@ class TrajectoryTool(object):
 
     def base_gravity_assist(self, v_s_i, v_s_f, v_planet_entry, v_planet_exit, body_assisting, epoch_entry, epoch_next_body):
 
+        # Calculated to be returned.
         _return = []
 
         # Parse body name in lower string form for trajectory plotter.
@@ -274,6 +315,7 @@ class TrajectoryTool(object):
         a = -body_assisting.k.to(u.km ** 3 / u.s ** 2) / (np.linalg.norm(deepcopy(v_s_p_i))) ** 2 / \
             (u.km ** 2 / u.s ** 2)
         b = np.sqrt(np.square(a) * (e ** 2 - 1))
+
         # Closest approach distance.
         r_p = -a * (e - 1)
 
@@ -283,24 +325,25 @@ class TrajectoryTool(object):
         # Check to see if closest approach is below set body limit.
         if r_p > r_atm:
             dv_extra = np.linalg.norm(v_s_f - v_out)
-            # print(v_s_f - v_out)
             _return.append(dv_extra)
 
+        # Raises error if gravity assist is not possible.
         else:
             raise ValueError("The gravity assist is not possible...\n"
                              "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
 
-        # Definition of plane of gravity assist
+        # Definition of plane of gravity assist.
         n = np.cross(v_s_p_i, v_s_p_f)
 
+        # B unit vector for entry.
         b_unit_v_enter = self.unit_vector(np.cross(v_s_p_f, n))
+
         # Check which direction the b_vector should go in.
         if (self.angle_between_cc(b_unit_v_enter, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
                                                                                                  b_unit_v_enter) > np.pi / 2):
             b_vec_enter = b_unit_v_enter * b.value * (u.km)
         else:
             b_vec_enter = -b_unit_v_enter * b.value * (u.km)
-
 
     def refined_gravity_assist(self, v_s_i, v_s_f_initial, v_planet_initial, body_assisting, body_next, epoch_entry, epoch_next_body, mode='fast', verification=False):
         _return = []
@@ -310,7 +353,7 @@ class TrajectoryTool(object):
         v_planet_exit = v_planet_initial
         delta_delta_t = 20000
 
-        while delta_delta_t >= 1:
+        while delta_delta_t <= 1:
 
             # Parse body name in lower string form for trajectory plotter.
             body_assist_str = body_assisting.__str__().split(' ')[0].lower()
@@ -357,7 +400,6 @@ class TrajectoryTool(object):
                 raise ValueError("The gravity assist is not possible...\n"
                                  "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
 
-
             # Definition of plane of gravity assist
             n = np.cross(v_s_p_i, v_s_p_f)
 
@@ -371,7 +413,7 @@ class TrajectoryTool(object):
 
             # Calculating the position on the SOI for entrance.
             x_mag_ent = np.sqrt(r_soi.value ** 2 - b.value ** 2)
-            x_vec_ent = self.unit_vector(np.negative(v_s_p_f)) * x_mag_ent
+            x_vec_ent = self.unit_vector(np.negative(v_s_p_i)) * x_mag_ent
             r_ent = x_vec_ent.value + b_vec_enter.value
 
             b_unit_v_exit = self.unit_vector(np.cross(v_s_p_i, n))
@@ -385,7 +427,7 @@ class TrajectoryTool(object):
 
             # Calculating the position on the SOI for exit
             x_mag_exit = np.sqrt(r_soi.value ** 2 - b.value ** 2)
-            x_vec_exit = self.unit_vector(np.negative(v_s_p_i)) * x_mag_exit
+            x_vec_exit = self.unit_vector(np.negative(v_s_p_f)) * x_mag_exit
             r_ext = x_vec_exit.value + b_vec_exit.value
 
             # Velocity at perigee
@@ -410,10 +452,11 @@ class TrajectoryTool(object):
             delta_delta_t = abs(delta_t_assist - delta_t_previous).to(u.s).value
 
             # Epoch during exit
+            print('delta_t_assist', delta_t_assist)
             epoch_exit = epoch_entry + time.TimeDelta(delta_t_assist)
 
             # New Lambert solution
-            (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r,
+            (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
                                    Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
 
             v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
@@ -444,7 +487,6 @@ class TrajectoryTool(object):
         # print('r_p', r_p)
         # print(np.linalg.norm(r_ent))
         # print(np.linalg.norm(r_ext))
-
 
     def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, mode='fast', verification=False):
         _return = []
@@ -603,7 +645,7 @@ class TrajectoryTool(object):
 
         return _return
 
-    def process_itinerary(self, _raw_itinerary, _body_list, _mode='plot', _grav_ass=False):
+    def process_itinerary(self, _raw_itinerary, _body_list, _mode='fast', _grav_ass=False):
         """
 
         :param _raw_itinerary:     raw_itinerary = {'id': int,
@@ -789,10 +831,10 @@ if __name__ == '__main__':
                             'durations': [2.115, 22.852]
                             }
         # ----------------------------------------------------------------------------------------------------------
-
         processed = _test.process_itinerary(__raw_itinerary2, __raw_itinerary1, _mode='fast', _grav_ass=True)
 
-
+        total = [24-float(i) for i in np.linspace(0, 9, 100)]
+        # print(total)
         # def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, plot=False, verification=False):
 
         # res = _test.optimise_gravity_assist(v_s_i=processed[1]['v']['a'],
@@ -804,25 +846,27 @@ if __name__ == '__main__':
         #                                       verification=True
         #                                       )
 
-
         # def refined_gravity_assist(self, v_s_i, v_s_f_initial, v_planet, body_assisting, body_next, epoch_entry,
         #                            epoch_next_body, mode='fast', verification=False):
 
-
-        print(processed[1]['d'])
-        ref = _test.refined_gravity_assist(v_s_i=processed[1]['v']['a'],
-                                           v_s_f_initial=processed[1]['v']['d'],
-                                           v_planet_initial=processed[1]['v']['p'],
-                                           body_assisting=processed[1]['b'],
-                                           epoch_entry=processed[1]['d'],
-                                           body_next= processed[2]['b'],
-                                           epoch_next_body=processed[2]['d'],
-                                           )
-
-
-        print([processed[i]['dv'] for i in range(len(processed))])
-        print(processed[1]['d'])
-
+        # -----------------------------------------------------------------------------------
+        # print(processed[1]['d'])
+        # ref = _test.refined_gravity_assist(v_s_i=processed[1]['v']['a'],
+        #                                    v_s_f_initial=processed[1]['v']['d'],
+        #                                    v_planet_initial=processed[1]['v']['p'],
+        #                                    body_assisting=processed[1]['b'],
+        #                                    epoch_entry=processed[1]['d'],
+        #                                    body_next= processed[2]['b'],
+        #                                    epoch_next_body=processed[2]['d'],
+        #                                    )
+        #
+        # _test.hohmanize_lambert(processed[1]['b'],
+        #                         processed[2]['b'],
+        #                         processed[1]['d'])
+        #
+        # print([processed[i]['dv'] for i in range(len(processed))])
+        # print(processed[1]['d'])
+        # ------------------------------------------------------------------------------------
         # print(processed[1]['v']['p'] - processed[1]['v']['a'])
 
         # print(res)
