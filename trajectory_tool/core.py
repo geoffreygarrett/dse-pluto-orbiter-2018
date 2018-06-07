@@ -322,10 +322,10 @@ class TrajectoryTool(object):
                               'd': time.Time(_raw_itinerary['launch_date'], scale='tdb'),
                               's': _body_list[0],
                               'v': {}}
-
-        print('\n')
-        print('-' * 40 + '-' * len(' ID: {}'.format(_raw_itinerary['id'])))
-        print('Initializing...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+        #SHOULD UN COMMENT
+        #print('\n')
+        #print('-' * 40 + '-' * len(' ID: {}'.format(_raw_itinerary['id'])))
+        #print('Initializing...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1] = {'b': body_list[_body_list[i + 1]],
                                       'd': time.Time(_raw_itinerary['launch_date'] +
@@ -336,7 +336,8 @@ class TrajectoryTool(object):
                                       'v': {}}
 
         # LAMBERT SOLUTIONS --------------------------------------------------------------------------------------------
-        print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+        # SHOULD UNCOMMENT
+        #print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1]['l'] = self.lambert_solve_from_bodies(_itinerary_data[i]['b'],
                                                                          _itinerary_data[i + 1]['b'],
@@ -366,7 +367,8 @@ class TrajectoryTool(object):
                 _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km / u.s)
                 _itinerary_data[i + 1]['v']['d'] = _itinerary_data[i + 2]['l'].v0.to(u.km / u.s)
 
-                print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+                #UNCOMMENT THIS
+                #print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
                 _itinerary_data[i + 1]['dv'] = \
                     self.optimise_gravity_assist(v_s_i=_itinerary_data[i + 1]['v']['a'],

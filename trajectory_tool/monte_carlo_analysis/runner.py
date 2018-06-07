@@ -58,7 +58,7 @@ def do_runner(itinerary_folder):
             result = tt.process_itinerary(case, itinerary, _mode='delta_v')
             print('worked')
         except ValueError as e:
-            print(e)
+            #print(e)
             continue
         trajectories.append(Trajectory(case=case['id'], itinerary=itinerary,
                                        planet_dates=[p['d'].datetime for p in result],
@@ -93,12 +93,13 @@ def connect(itinerary_list):
 
 #EDIT THE X FOR A NEW SOLUTION RUN
 sols_string = []
-for sol in sols2send_X:
+for sol in sols2send_1:
     sol_string = connect(sol)
     sols_string.append(sol_string)
-    print(sols_string)
 
+print(sols_string)
 for sol in sols_string:
+    print(sol)
     do_runner(sol)
 
 
