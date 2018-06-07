@@ -9,7 +9,7 @@ from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
 from trajectory_tool.ale_solar_system.time_utils import datetime_to_jd, jd_to_datetime
 
 
-def plot_porkchop(X, Y, Z):
+def plot_porkchop(X, Y, Z, title):
     x_grid, y_grid = np.meshgrid(np.linspace(min(X), max(X), 700), np.arange(min(Y), max(Y), 700))
     z_grid = np.zeros_like(x_grid)
     f = Rbf(X, Y, Z, epsilon=1)
@@ -34,15 +34,54 @@ def plot_porkchop(X, Y, Z):
 
     # Plot grid.
     plt.grid(c='k', ls='-', alpha=0.3)
+    plt.suptitle(title)
     plt.tight_layout()
     plt.show()
 
 
 if __name__ == "__main__":
 
+    base_path = os.path.dirname(os.path.realpath(__file__))
+    itineraries = [folder for folder in os.listdir(base_path) if os.path.isdir(folder) and 'earth' in folder]
+    for itinerary in itineraries:
+        results_dir = os.path.join(base_path, itinerary, 'case_data')
+        if os.path.exists(results_dir):
+            results_files = [os.path.join(results_dir, file) for file in os.listdir(results_dir) if 'cases' in str(file)]
+            trajectories = []
+            for results_file in results_files:
+                # with open(results_file, 'r') as f:
+                #     file_string = f.read()
+                # if '}\n=======\n[\n' in file_string:
+                #     the_index = file_string.index('}\n=======\n[\n')
+                #     print(file_string[the_index - 3: the_index + 40])
+                #     file_string = file_string.replace('}\n=======\n[\n', '},\n')
+                #     print(file_string[the_index - 3: the_index + 40])
+                # if '<<<<<<< HEAD\n[' in file_string:
+                #     file_string = file_string.replace('<<<<<<< HEAD\n[', '[')
+                # if '>>>>>>> master\n' in file_string:
+                #     file_string = file_string.replace('>>>>>>> master\n', '')
+                # with open(results_file, 'w') as f:
+                #     f.write(file_string)
+                trajectories += [Trajectory.from_dict(case_dict) for case_dict in json.load(open(results_file, 'r'))]
+            launch_dates = []
+            tof = []
+            delta_v = []
+            for case in trajectories:
+                launch_dates.append(datetime_to_jd(case.planet_dates[0]))
+                tof.append((case.planet_dates[-1] - case.planet_dates[0]).days)
+                delta_v.append(case.delta_v)
+                if not isinstance(delta_v[-1], float):
+                    print(delta_v[-1])
+                if not isinstance(tof[-1], int):
+                    print(tof[-1])
+                if not isinstance(launch_dates[-1], float):
+                    print(launch_dates[-1])
+            plot_porkchop(launch_dates, tof, delta_v, itinerary)
+
+    exit()
+
     folder = 'earth-mars-earth-jupiter-pluto'
 
-    base_path = os.path.dirname(os.path.realpath(__file__))
     results_dir = os.path.join(base_path, folder, 'case_data')
     boosted_dir = os.path.join(base_path, folder, 'boosted_data')
     results_files = [os.path.join(results_dir, file) for file in os.listdir(results_dir) if 'cases' in str(file)]
