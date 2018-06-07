@@ -11,8 +11,8 @@
 .idea*
 .idea/
 
-*case_data/
-*boosted_data/
+#*case_data/
+#*boosted_data/
 
 # Distribution / packaging
 #bin/
