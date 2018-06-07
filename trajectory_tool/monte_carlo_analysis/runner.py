@@ -97,7 +97,8 @@ sols_string = []
 for sol in sols2send_2:
     sol_string = connect(sol)
     sols_string.append(sol_string)
-    print(sols_string)
 
+print(sols_string)
 for sol in sols_string:
+    print(sol)
     do_runner(sol)
