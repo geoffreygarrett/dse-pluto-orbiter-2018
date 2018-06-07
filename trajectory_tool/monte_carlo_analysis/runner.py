@@ -5,7 +5,7 @@ Created by Alejandro Daniel Noel
 import datetime
 import os
 import json
-from trajectory_tool import TestSolutionsMatt
+from trajectory_tool.TestSolutionsMatt import sols2send_1, sols2send_2, sols2send_3, sols2send_4
 
 from trajectory_tool.core import TrajectoryTool
 from trajectory_tool.monte_carlo_analysis.obj_def import Trajectory
@@ -78,5 +78,28 @@ def do_runner(itinerary_folder):
     # final save
     if len(trajectories):
         save_legs(batch_init_case, cases[-1]['id'], [t.get_dict() for t in trajectories], results_dir)
+#print(sols2send)
 
-do_runner('earth-jupiter-pluto')
+def connect(itinerary_list):
+    itinerary_string = ''
+    for body in itinerary_list:
+        if body == 'pluto':
+            itinerary_string += body
+        else:
+            itinerary_string += body + '-'
+    return itinerary_string
+
+# print(connect(sols2send_1[0]))
+
+#EDIT THE X FOR A NEW SOLUTION RUN
+sols_string = []
+for sol in sols2send_X:
+    sol_string = connect(sol)
+    sols_string.append(sol_string)
+    print(sols_string)
+
+for sol in sols_string:
+    do_runner(sol)
+
+
+

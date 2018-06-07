@@ -118,7 +118,7 @@ for sol in all_solutions:
                     if ((J+S) not in sol):
                         all_sols_refined_1.append(sol)
 
-print(len(all_sols_refined_1))
+#print(len(all_sols_refined_1))
 
 sols2send =[]
 for sol in all_sols_refined_1:
@@ -132,4 +132,19 @@ for sol in all_sols_refined_1:
         if bod == P: newsol.append('pluto')
     sols2send.append(newsol)
 
-print(sols2send)
+def split_list(a_list):
+    half = len(a_list)/2
+    half = int(half)
+    #print(half)
+    return a_list[:half], a_list[half:]
+
+
+sols2send_half1, sols2send_half2 = split_list(sols2send)
+
+sols2send_1, sols2send_2 = split_list(sols2send_half1)
+sols2send_3, sols2send_4 = split_list(sols2send_half2)
+#
+# print(sols2send_1)
+# print(sols2send_2)
+# print(sols2send_3)
+# print(sols2send_4)
