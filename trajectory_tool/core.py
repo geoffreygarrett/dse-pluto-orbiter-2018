@@ -532,7 +532,6 @@ class TrajectoryTool(object):
         # Check to see if closest approach is below set body limit.
         if r_p > r_atm:
             dv_extra = np.linalg.norm(v_s_f - v_out)
-            print(v_s_f-v_out)
             _return.append(dv_extra)
 
         else:
@@ -584,7 +583,6 @@ class TrajectoryTool(object):
             return np.sqrt((-a) ** 3 / (body.k)) * (e * np.sinh(H) - H)
 
         # print('t_p: ',t_p.to(u.s))
-        print('v_per: ',v_per.to(u.km/u.s))
 
         # eq_r_t = Eq((1+a.to(u.km).value/r_p.to(u.km).value*(sympy.cosh(S('H'))-1) )*r_p.to(u.km).value + (S('t') - (sympy.sinh(S('H'))-S('H'))/(body.k.value/(-a.to(u.km).value)**3))*v_per.to(u.km/u.s).value, S('r'))
         # eq_chH = Eq((e+sympy.cos(S('theta')))/
@@ -597,7 +595,6 @@ class TrajectoryTool(object):
 
         theta_rsoi_exit = (2*np.pi - self.angle_between(r_ent, r_ext))/2
 
-        print('t_p: ', )
 
         delta_t_assist = 2*t_p(H(theta_rsoi_exit)).to(u.s)
 
@@ -645,7 +642,7 @@ class TrajectoryTool(object):
 
         return _return
 
-    def process_itinerary(self, _raw_itinerary, _body_list, _mode='fast', _grav_ass=False):
+    def process_itinerary(self, _raw_itinerary, _body_list, _mode='fast', _grav_ass=False, verbose=False):
         """
 
         :param _raw_itinerary:     raw_itinerary = {'id': int,
@@ -819,8 +816,9 @@ class TrajectoryTool(object):
                 frame.show(title="EJP Example")
                 frame.savefig("EJPExample.png", title="EJP Example trajectory sequence")
 
-        print('Complete!'.ljust(40) + ' ID: {}'.format(_raw_itinerary['id']))
-        print('-' * 40 + '-' * len(' ID: {}\n'.format(_raw_itinerary['id'])))
+        if verbose:
+            print('Complete!'.ljust(40) + ' ID: {}'.format(_raw_itinerary['id']))
+            print('-' * 40 + '-' * len(' ID: {}\n'.format(_raw_itinerary['id'])))
         return _itinerary_data
 
 

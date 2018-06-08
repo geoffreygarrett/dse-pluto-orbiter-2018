@@ -1,13 +1,14 @@
-from random import randint, choice, uniform
-from copy import deepcopy
+from random import randint, choice, uniform, random
 from datetime import datetime
 from trajectory_tool.core import *
-
 import scipy.stats as ss
 import numpy as np
+from functools import lru_cache
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
+MUTATION_RATE = 0.1
+POPULATION_SIZE = 100
 
 planet_mapping = {'1': Mercury,
                   '2': Venus,
@@ -21,29 +22,28 @@ planet_mapping = {'1': Mercury,
 
 
 # Here is the definition of the fitness function.
-def fitness_function(chromosone_singleton, chromosone, tt):
-    assert chromosone_singleton.unary_schema == list('123456789')
-    assert chromosone_singleton.total_schema == '0000 00000 00000 0000'
+def fitness_function(chromosome_singleton, chromosome, tt):
+    assert chromosome_singleton.unary_schema == list('123456789')
+    assert chromosome_singleton.total_schema == '0000 00000 00000 0000'
 
-    _raw_itinerary, _body_list = chromosone_singleton.mapper(chromosone)
+    _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
     try:
         results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='fast')
         delta_v = sum(results[i]['dv'] for i in range(len(results)))
-    except ValueError:
-        delta_v = 100
+    except (ValueError, RuntimeError):
+        delta_v = 200
     return 15.0 - delta_v
 
 
-class Chromosone(object):
+class Chromosome(object):
 
     @staticmethod
-    def mapper(chromosone):
-        sequences = chromosone.split(' ')
+    def mapper(chromosome):
+        sequences = chromosome.split(' ')
 
         assists = list(filter(lambda a: a != '00000', sequences[1:-1]))
-        print(assists)
 
-        _id = chromosone
+        _id = chromosome
         _launch_day = START_EPOCH + datetime.timedelta(days=int(sequences[0]))
         _durations = []
         _body_list = []
@@ -69,8 +69,9 @@ class Chromosone(object):
         self._total_schema = _total_schema
         self._tt = TrajectoryTool()
 
-    def fitness(self, _chromosone, _fitness_function, limit=None):
-        return fitness_function(self, _chromosone, self._tt)
+    @lru_cache(maxsize=500)
+    def fitness(self, _chromosome, _fitness_function, limit=None):
+        return fitness_function(self, _chromosome, self._tt)
 
     @property
     def unary_schema(self):
@@ -80,16 +81,47 @@ class Chromosone(object):
     def total_schema(self):
         return self._total_schema
 
-    def crossover(self, chromosone1, chromosone2):
+    def crossover(self, chromosome1, chromosome2):
         pass
 
-    # @property
-    def random_chromosone(self, duration):
+    def mutation(self, _chromosome):
+        # sequences = _chromosome.splut(' ')
+        # assist_seq = sequences[1:-1]
+        sequences = _chromosome.split(' ')
+        seqs = []
+        for seq in sequences:
+            seq = list(seq)
+            if len(seq) is 5:   # Gravity assist
+                if seq[0] is '0':
+                    seqs.append(''.join(seq))
+                    continue
+                #####
+
+                ######
+                for i, gene in enumerate(seq):
+                    if random() <= MUTATION_RATE:
+                        seq[i] = choice(_unary_schema)
+                    else:
+                        pass
+                seqs.append(''.join(seq))
+
+            elif len(seq) is 4:    # Arrival/departure
+                for i, gene in enumerate(seq):
+                    if random() <= MUTATION_RATE:
+                        seq[i] = choice(_unary_schema)
+                    else:
+                        pass
+                seqs.append(''.join(seq))
+
+        return ' '.join(seqs)
+
+
+    def random_chromosome(self, duration):
         duration_days = duration * 365
 
-        chromosone = deepcopy(self._total_schema)
+        chromosome = deepcopy(self._total_schema)
         # (0000) 00000 00000 0000
-        chromosone = chromosone.replace('0000', str(randint(1, 9999)).zfill(4), 1)
+        chromosome = chromosome.replace('0000', str(randint(1, 9999)).zfill(4), 1)
 
         # 0000 (0)0000 (0)0000 0000
         _rng_qty_assists = randint(1, len(self._total_schema.split(' ')) - 2)
@@ -114,17 +146,14 @@ class Chromosone(object):
                             for i in
                             range(len(sequence_planets))]
         sequence_planets = [' ' + seq for seq in sequence_planets]
-        chromosone = chromosone.replace(' 00000' * len(_rng_planets), ''.join(sequence_planets), 1)
+        chromosome = chromosome.replace(' 00000' * len(_rng_planets), ''.join(sequence_planets), 1)
 
         # 0000 00000 00000 (0000)
-        temp = chromosone.split(' ')
+        temp = chromosome.split(' ')
         temp[-1] = temp[-1].replace('0000', str(int(_rng_duration_of_legs_days[-1])).zfill(4), 1)
-        chromosone = ' '.join(temp)
+        chromosome = ' '.join(temp)
 
-        return chromosone
-
-    def mutation(self, chromosone):
-        pass
+        return chromosome
 
 
 class Population(object):
@@ -140,17 +169,54 @@ class Population(object):
         nums = 20 + nums
         return nums
 
-    def __init__(self, _chromosone, _population_size):
-        # Chromosone singleton and schema format.
+    def __init__(self, _chromosome, _population_size):
+        # chromosome singleton and schema format.
         self._random_durations = self.random_durations(_population_size)
         self._random_durations_population = [choice(self._random_durations) for _ in range(_population_size)]
         self._population_size = _population_size
-        self._chromosone = _chromosone
-        self._unary_schema = _chromosone.unary_schema
-        self._total_schema = _chromosone.total_schema
-        self._genesis_generation = [self._chromosone.random_chromosone(duration)
+        self._chromosome = _chromosome
+        self._unary_schema = _chromosome.unary_schema
+        self._total_schema = _chromosome.total_schema
+        self._genesis_generation = [self._chromosome.random_chromosome(duration)
                                     for duration in self._random_durations_population]
+        self._generations = []
         self._current_generation = self._genesis_generation
+        self._generations.append([self._current_generation])
+        self._historical_fitness = []
+        self._historical_fitness.append(self.current_generation_fitness)
+
+    # def _print_population(self):
+    #     print('-'*40)
+    def elite_class(self, qty):
+        test = np.array(self._historical_fitness[-1])
+        temp = np.argpartition(-test, qty)
+        result_args = temp[:qty]
+        temp = np.partition(-test, qty)
+        result = -temp[:qty]
+        top = [self._current_generation[i] for i in result_args]
+        return list(zip(result, top))
+
+    def mutate(self):
+        _next_generation = [self._chromosome.mutation(cromo) for cromo in self._current_generation]
+        self._historical_fitness.append(self.current_generation_fitness)
+        self._current_generation = _next_generation
+        self._historical_fitness.append(self.current_generation_fitness)
+
+        _contending_generation = self._current_generation + _next_generation
+        _contending_scores = self._historical_fitness[-2] + self._historical_fitness[-1]
+        _contending_order = np.array(_contending_scores).argsort()
+
+        self._historical_fitness.append(list(np.array(_contending_scores)[_contending_order >= len(_contending_scores)
+                                                                          - POPULATION_SIZE]))
+
+        self._current_generation = list(np.array(_contending_generation)[_contending_order >= len(_contending_scores)
+                                                                         - POPULATION_SIZE])
+        return self._current_generation
+
+
+    @property
+    def fittest(self):
+        return self.elite_class(1)
 
     @property
     def genesis_generation(self):
@@ -158,51 +224,66 @@ class Population(object):
 
     @property
     def current_generation_fitness(self):
-        return [self._chromosone.fitness(_chromosone, fitness_function) for _chromosone in self._current_generation]
-
-    # @property
-    # def current_generation(self):
-    #     current_generation()
-    #     while True:
+        gen_fit = [self._chromosome.fitness(_chromosome, fitness_function) for _chromosome in self._current_generation]
+        return gen_fit
 
     @property
-    def chromosone(self):
-        return self._chromosone
+    def current_generation(self):
+        return self._current_generation
+
+    @property
+    def chromosome_singleton(self):
+        return self._chromosome
 
 
-# class EvolutionaryAlgorithim(object):
-#     def __init__(self, _chromosone, _fitness_function):
-#         # Chromosone singleton and schema format.
-#         self._chromosone = _chromosone
-#         self._unary_schema = _chromosone.unary_schema
-#         self._total_schema = _chromosone.total_schema
-#
-#         # Fitness function.
-#         self._fitness_function = _fitness_function
+class EvolutionaryAlgorithim(object):
+    @staticmethod
+    def evolve(population):
+        return EvolutionaryAlgorithim._mutate_population(EvolutionaryAlgorithim._crossover_population(population))
+
+    @staticmethod
+    def _crossover_population(population):
+        return population
+
+    @staticmethod
+    def _mutate_population(population):
+        return population.mutate()
 
 
 if __name__ == '__main__':
     tt = TrajectoryTool()
 
-    # Chromosone singleton setup.
+    # chromosome singleton setup.
     _unary_schema = list('123456789')
     _total_schema = '0000 00000 00000 0000'
-    Chromosone = Chromosone(_unary_schema=_unary_schema,
+    Chromosome = Chromosome(_unary_schema=_unary_schema,
                             _total_schema=_total_schema)
 
     # Population singleton setup.
-    # _population_size = 100000
-    # Population = Population(Chromosone, _population_size=_population_size)
+    _population_size = POPULATION_SIZE
+    Population = Population(Chromosome, _population_size=_population_size)
 
-    raw, bodyl = Chromosone.mapper('6262 62990 00000 5367')
-    # print(raw)
-    # print(bodyl)
+    # print(Population.elite_class(10))
+    # for result, top in Population.elite_class(10):
+    #     print('{:0.2f}'.ljust(10).format(result), top)
+
+    raw, bodyl = Chromosome.mapper('6786 57343 00000 9593')
+    # # print(raw)
+    # # print(bodyl)
     tt.process_itinerary(raw, bodyl, _mode='plot3D')
 
     # code = np.array(Population.genesis_generation)
     # results = np.array(Population.current_generation_fitness)
-    #
-    # print(results)
-    #
-    # print(results[results > 0])
-    # print(code[results > 0])
+    # #
+    # # print(results)
+    # #
+    # print(results[results > -20])
+    # print(code[results > -20])
+
+    # for i in range(1000):
+    #     print(Chromosome.mutation('5679 58178 00000 9761'))
+
+    # while Population.fittest[0][0] < 2:
+    #     result, top = Population.fittest[0]
+    #     print('Fitness: {:0.2f}'.format(result).ljust(20), 'Chromosome: {}'.format(top))
+    #     EvolutionaryAlgorithim.evolve(Population)
