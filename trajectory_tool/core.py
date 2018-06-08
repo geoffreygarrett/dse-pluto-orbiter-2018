@@ -684,7 +684,7 @@ class TrajectoryTool(object):
                                                                          _itinerary_data[i]['d'],
                                                                          _itinerary_data[i + 1]['d'])
 
-        if (_mode is 'delta_v' or 'plot2D' or 'full' or 'plot3D'):
+        if _mode is 'delta_v' or 'plot2D' or 'full' or 'plot3D':
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km / u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km / u.s)

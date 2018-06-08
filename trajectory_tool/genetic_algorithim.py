@@ -4,10 +4,11 @@ from trajectory_tool.core import *
 import scipy.stats as ss
 import numpy as np
 from functools import lru_cache
+import pandas as pd
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.1
+MUTATION_RATE = 0.2
 POPULATION_SIZE = 100
 
 planet_mapping = {'1': Mercury,
@@ -27,12 +28,22 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     assert chromosome_singleton.total_schema == '0000 00000 00000 0000'
 
     _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
+    _total_dur = sum(_raw_itinerary['durations'])
     try:
         results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='fast')
         delta_v = sum(results[i]['dv'] for i in range(len(results)))
+
+        if _total_dur >= 24:
+            duration_penalty = 1000
+
+        else:
+            duration_penalty = 0
+
     except (ValueError, RuntimeError):
         delta_v = 200
-    return 15.0 - delta_v
+        duration_penalty = 0
+
+    return 15.0 - delta_v - duration_penalty
 
 
 class Chromosome(object):
@@ -169,6 +180,10 @@ class Population(object):
         nums = 20 + nums
         return nums
 
+    @staticmethod
+    def _filter(generation_df, number):
+        return generation_df.nlargest(number, columns='Fitness').reset_index(drop=True)
+
     def __init__(self, _chromosome, _population_size):
         # chromosome singleton and schema format.
         self._random_durations = self.random_durations(_population_size)
@@ -179,44 +194,46 @@ class Population(object):
         self._total_schema = _chromosome.total_schema
         self._genesis_generation = [self._chromosome.random_chromosome(duration)
                                     for duration in self._random_durations_population]
-        self._generations = []
-        self._current_generation = self._genesis_generation
-        self._generations.append([self._current_generation])
-        self._historical_fitness = []
-        self._historical_fitness.append(self.current_generation_fitness)
 
-    # def _print_population(self):
-    #     print('-'*40)
+        # self._current_generation = self._genesis_generation
+
+        self._current_generation = pd.DataFrame(columns=['Fitness', 'Chromosome'])
+        self._current_generation['Chromosome'] = self._genesis_generation
+        self._current_generation['Fitness'] = self.current_generation_fitness
+        self._current_generation = self._current_generation.nlargest(_population_size, columns='Fitness').reset_index(drop=True)
+
+        # self.current_generation2.reindex_axis(sorted(self.current_generation2['Fitness'].index), axis=1)
+        self.generation_stats = pd.DataFrame(columns=['Generation', 'Best', 'Fitness'])
+        self._generations = 0
+        print(self._current_generation)
+
     def elite_class(self, qty):
-        test = np.array(self._historical_fitness[-1])
-        temp = np.argpartition(-test, qty)
-        result_args = temp[:qty]
-        temp = np.partition(-test, qty)
-        result = -temp[:qty]
-        top = [self._current_generation[i] for i in result_args]
-        return list(zip(result, top))
+        return self._current_generation.nlargest(qty, columns='Fitness').reset_index(drop=True)
 
     def mutate(self):
-        _next_generation = [self._chromosome.mutation(cromo) for cromo in self._current_generation]
-        self._historical_fitness.append(self.current_generation_fitness)
-        self._current_generation = _next_generation
-        self._historical_fitness.append(self.current_generation_fitness)
+        mutated_chromosomes = [self._chromosome.mutation(cromo) for cromo in
+                               self.current_generation['Chromosome'].tolist()]
 
-        _contending_generation = self._current_generation + _next_generation
-        _contending_scores = self._historical_fitness[-2] + self._historical_fitness[-1]
-        _contending_order = np.array(_contending_scores).argsort()
+        mutated_fitness = self.groups_fitness(mutated_chromosomes)
 
-        self._historical_fitness.append(list(np.array(_contending_scores)[_contending_order >= len(_contending_scores)
-                                                                          - POPULATION_SIZE]))
+        mutated_df = pd.DataFrame()
+        mutated_df['Fitness'] = mutated_fitness
+        mutated_df['Chromosome'] = mutated_chromosomes
 
-        self._current_generation = list(np.array(_contending_generation)[_contending_order >= len(_contending_scores)
-                                                                         - POPULATION_SIZE])
+        self._current_generation = self._filter(self._current_generation.append(mutated_df), _population_size)
         return self._current_generation
 
+    def filter(self):
+        return self.current_generation.nlargest(_population_size, columns='Fitness').reset_index(drop=True)
+
+    def groups_fitness(self, list):
+        gen_fit = [self._chromosome.fitness(_chromosome, fitness_function) for _chromosome in
+                   list]
+        return gen_fit
 
     @property
     def fittest(self):
-        return self.elite_class(1)
+        return self.elite_class(1).values[0]
 
     @property
     def genesis_generation(self):
@@ -224,7 +241,8 @@ class Population(object):
 
     @property
     def current_generation_fitness(self):
-        gen_fit = [self._chromosome.fitness(_chromosome, fitness_function) for _chromosome in self._current_generation]
+        gen_fit = [self._chromosome.fitness(_chromosome, fitness_function) for _chromosome in
+                   self._current_generation['Chromosome'].tolist()]
         return gen_fit
 
     @property
@@ -249,6 +267,10 @@ class EvolutionaryAlgorithim(object):
     def _mutate_population(population):
         return population.mutate()
 
+    @staticmethod
+    def _filter_population(population):
+        return population.filter()
+
 
 if __name__ == '__main__':
     tt = TrajectoryTool()
@@ -263,27 +285,14 @@ if __name__ == '__main__':
     _population_size = POPULATION_SIZE
     Population = Population(Chromosome, _population_size=_population_size)
 
-    # print(Population.elite_class(10))
-    # for result, top in Population.elite_class(10):
-    #     print('{:0.2f}'.ljust(10).format(result), top)
+    raw, bodyl = Chromosome.mapper('1449 50662 00000 7996')
+    results = tt.process_itinerary(raw, bodyl, _mode='full')
+    print([results[i]['dv'] for i in range(len(results))])
 
-    raw, bodyl = Chromosome.mapper('6786 57343 00000 9593')
-    # # print(raw)
-    # # print(bodyl)
-    tt.process_itinerary(raw, bodyl, _mode='plot3D')
-
-    # code = np.array(Population.genesis_generation)
-    # results = np.array(Population.current_generation_fitness)
-    # #
-    # # print(results)
-    # #
-    # print(results[results > -20])
-    # print(code[results > -20])
-
-    # for i in range(1000):
-    #     print(Chromosome.mutation('5679 58178 00000 9761'))
-
-    # while Population.fittest[0][0] < 2:
-    #     result, top = Population.fittest[0]
+    print([results[i]['v']['p'] for i in range(len(results))])
+    print([results[i]['v']['a'] for i in range(len(results))])
+    #
+    # while Population.fittest[0] < 4:
+    #     result, top = Population.fittest[0], Population.fittest[1]
     #     print('Fitness: {:0.2f}'.format(result).ljust(20), 'Chromosome: {}'.format(top))
     #     EvolutionaryAlgorithim.evolve(Population)
