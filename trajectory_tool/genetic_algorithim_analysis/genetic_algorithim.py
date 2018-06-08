@@ -1,15 +1,23 @@
 from random import randint, choice, uniform, random
 from datetime import datetime
 from trajectory_tool.core import *
+from trajectory_tool.genetic_algorithim_analysis import DIR_GA
 import scipy.stats as ss
+import os
 import numpy as np
 from functools import lru_cache
 import pandas as pd
+import difflib
+import _thread
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.2
+MUTATION_RATE = 0.1
 POPULATION_SIZE = 100
+SIMILARITY_FILTER = 0.9
+
+FIRST_LEG_LIMIT_UPPER = 5250
+LAST_LEG_LIMIT_UPPER = 5860
 
 planet_mapping = {'1': Mercury,
                   '2': Venus,
@@ -30,8 +38,24 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
     _total_dur = sum(_raw_itinerary['durations'])
     try:
-        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='fast')
-        delta_v = sum(results[i]['dv'] for i in range(len(results)))
+        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='delta_v')
+        delta_v_legs = [results[i]['dv'] for i in range(len(results))]
+        delta_v = sum(delta_v_legs)
+
+        # Propulsion leg penalty total
+        propulsion_total_penalty = 8
+
+        # First leg penalty
+        if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
+            first_leg_penalty_factor = 3
+        else:
+            first_leg_penalty_factor = 0
+
+        # Last leg penalty
+        if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
+            last_leg_penalty_factor = 1
+        else:
+            last_leg_penalty_factor = 0
 
         if _total_dur >= 24:
             duration_penalty = 1000
@@ -39,14 +63,54 @@ def fitness_function(chromosome_singleton, chromosome, tt):
         else:
             duration_penalty = 0
 
-    except (ValueError, RuntimeError):
+    except (ValueError, RuntimeError):  # Gravity assist/ Lambert solution not possible.
         delta_v = 200
         duration_penalty = 0
+        last_leg_penalty_factor = 0
+        first_leg_penalty_factor = 0
+        propulsion_total_penalty = 0
 
-    return 15.0 - delta_v - duration_penalty
+    return (15.0 - delta_v - duration_penalty)
+            # - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor))     # Propulsion req.
 
 
 class Chromosome(object):
+
+    @staticmethod
+    def mutation(_chromosome):
+        sequences = _chromosome.split(' ')
+        seqs = []
+        for seq in sequences:
+            seq = list(seq)
+            if len(seq) is 5:   # Gravity assist
+                if seq[0] is '0':
+                    seqs.append(''.join(seq))
+                    continue
+
+                ##############################################
+
+                ##############################################
+
+                for i, gene in enumerate(seq):
+                    if random() <= MUTATION_RATE:
+                        seq[i] = choice(_unary_schema)
+                    else:
+                        pass
+                seqs.append(''.join(seq))
+
+            elif len(seq) is 4:    # Arrival/departure
+                for i, gene in enumerate(seq):
+                    if random() <= MUTATION_RATE:
+                        seq[i] = choice(_unary_schema)
+                    else:
+                        pass
+                seqs.append(''.join(seq))
+
+        return ' '.join(seqs)
+
+    @staticmethod
+    def similarity(chromosome1, chromosome2):
+        difflib.SequenceMatcher(chromosome1, chromosome2).ratio()
 
     @staticmethod
     def mapper(chromosome):
@@ -80,7 +144,7 @@ class Chromosome(object):
         self._total_schema = _total_schema
         self._tt = TrajectoryTool()
 
-    @lru_cache(maxsize=500)
+    # @lru_cache(maxsize=500)
     def fitness(self, _chromosome, _fitness_function, limit=None):
         return fitness_function(self, _chromosome, self._tt)
 
@@ -93,41 +157,9 @@ class Chromosome(object):
         return self._total_schema
 
     def crossover(self, chromosome1, chromosome2):
-        pass
+        pass   # TODO: Finish
 
-    def mutation(self, _chromosome):
-        # sequences = _chromosome.splut(' ')
-        # assist_seq = sequences[1:-1]
-        sequences = _chromosome.split(' ')
-        seqs = []
-        for seq in sequences:
-            seq = list(seq)
-            if len(seq) is 5:   # Gravity assist
-                if seq[0] is '0':
-                    seqs.append(''.join(seq))
-                    continue
-                #####
-
-                ######
-                for i, gene in enumerate(seq):
-                    if random() <= MUTATION_RATE:
-                        seq[i] = choice(_unary_schema)
-                    else:
-                        pass
-                seqs.append(''.join(seq))
-
-            elif len(seq) is 4:    # Arrival/departure
-                for i, gene in enumerate(seq):
-                    if random() <= MUTATION_RATE:
-                        seq[i] = choice(_unary_schema)
-                    else:
-                        pass
-                seqs.append(''.join(seq))
-
-        return ' '.join(seqs)
-
-
-    def random_chromosome(self, duration):
+    def random_chromosome(self, duration, assists='any'):
         duration_days = duration * 365
 
         chromosome = deepcopy(self._total_schema)
@@ -135,9 +167,19 @@ class Chromosome(object):
         chromosome = chromosome.replace('0000', str(randint(1, 9999)).zfill(4), 1)
 
         # 0000 (0)0000 (0)0000 0000
-        _rng_qty_assists = randint(1, len(self._total_schema.split(' ')) - 2)
-        _rng_planets = []
+        if assists is 'any':
+            _rng_qty_assists = randint(1, len(self._total_schema.split(' ')) - 2)
 
+        elif assists is '1':
+            _rng_qty_assists = 1
+
+        elif assists is '2':
+            _rng_qty_assists = 2
+
+        elif assists is '3':
+            _rng_qty_assists = 3
+
+        _rng_planets = []
         for i in range(_rng_qty_assists):
             _temp = deepcopy(self._unary_schema)
             _temp = list(set(_temp) - set(['9']))  # Pluto removed as gravity assist.
@@ -180,11 +222,20 @@ class Population(object):
         nums = 20 + nums
         return nums
 
-    @staticmethod
-    def _filter(generation_df, number):
-        return generation_df.nlargest(number, columns='Fitness').reset_index(drop=True)
 
-    def __init__(self, _chromosome, _population_size):
+    @staticmethod
+    def remove_similar(generation_df, percentage_similarity):
+        pass
+        # return [x['']]
+
+    def _filter(self, generation_df, number, similarity_threshold=None):
+        # for row in generation_df:
+        #
+        # # filtered0 = generation_df.apply(self._chromosome.similarity(generation_df[]))
+        filtered1 = generation_df.nlargest(number, columns='Fitness').reset_index(drop=True)
+        return filtered1
+
+    def __init__(self, _chromosome, _population_size, assists='any'):
         # chromosome singleton and schema format.
         self._random_durations = self.random_durations(_population_size)
         self._random_durations_population = [choice(self._random_durations) for _ in range(_population_size)]
@@ -192,7 +243,7 @@ class Population(object):
         self._chromosome = _chromosome
         self._unary_schema = _chromosome.unary_schema
         self._total_schema = _chromosome.total_schema
-        self._genesis_generation = [self._chromosome.random_chromosome(duration)
+        self._genesis_generation = [self._chromosome.random_chromosome(duration, assists)
                                     for duration in self._random_durations_population]
 
         # self._current_generation = self._genesis_generation
@@ -205,7 +256,6 @@ class Population(object):
         # self.current_generation2.reindex_axis(sorted(self.current_generation2['Fitness'].index), axis=1)
         self.generation_stats = pd.DataFrame(columns=['Generation', 'Best', 'Fitness'])
         self._generations = 0
-        print(self._current_generation)
 
     def elite_class(self, qty):
         return self._current_generation.nlargest(qty, columns='Fitness').reset_index(drop=True)
@@ -219,8 +269,9 @@ class Population(object):
         mutated_df = pd.DataFrame()
         mutated_df['Fitness'] = mutated_fitness
         mutated_df['Chromosome'] = mutated_chromosomes
+        collected_df = self._current_generation.append(mutated_df).drop_duplicates()
 
-        self._current_generation = self._filter(self._current_generation.append(mutated_df), _population_size)
+        self._current_generation = self._filter(collected_df, _population_size)
         return self._current_generation
 
     def filter(self):
@@ -264,6 +315,34 @@ class EvolutionaryAlgorithim(object):
         return population
 
     @staticmethod
+    def save_generation(population, identity=None):
+        if identity:
+            newpath = os.path.join(DIR_GA,'generations_{0}_test'.format(str(id).zfill(4)))
+            if not os.path.exists(newpath):
+                os.makedirs(newpath)
+            else:
+                pass
+            num = 0
+            while True:
+                if not os.path.exists(os.path.join(DIR_GA, newpath, 'gen_{}'.format(num))):
+                    population.current_generation.to_csv('gen_{}'.format(num))
+                else:
+                    num+=1
+        else:
+            newpath = os.path.join(DIR_GA,'generations_{}'.format(str(id).zfill(4)))
+            if not os.path.exists(newpath):
+                os.makedirs(newpath)
+            else:
+                pass
+                num=0
+                while True:
+                    if not os.path.exists(os.path.join(DIR_GA, newpath, 'gen_{}'.format(num))):
+                        population.current_generation.to_csv('gen_{}'.format(num))
+                    else:
+                        num+=1
+
+
+    @staticmethod
     def _mutate_population(population):
         return population.mutate()
 
@@ -274,6 +353,9 @@ class EvolutionaryAlgorithim(object):
 
 if __name__ == '__main__':
     tt = TrajectoryTool()
+    to_do = ['evolve', 'plot', 'stats']
+    TO_DO = 2
+    INSPECT = '6665 30667 61425 6667'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -283,16 +365,27 @@ if __name__ == '__main__':
 
     # Population singleton setup.
     _population_size = POPULATION_SIZE
-    Population = Population(Chromosome, _population_size=_population_size)
+    Population = Population(Chromosome, _population_size=_population_size, assists='any')
 
-    raw, bodyl = Chromosome.mapper('1449 50662 00000 7996')
-    results = tt.process_itinerary(raw, bodyl, _mode='full')
-    print([results[i]['dv'] for i in range(len(results))])
+    if to_do[TO_DO] is 'plot':
+        raw, bodyl = Chromosome.mapper(INSPECT)
+        results = tt.process_itinerary(raw, bodyl, _mode='plot3D')
 
-    print([results[i]['v']['p'] for i in range(len(results))])
-    print([results[i]['v']['a'] for i in range(len(results))])
-    #
-    # while Population.fittest[0] < 4:
-    #     result, top = Population.fittest[0], Population.fittest[1]
-    #     print('Fitness: {:0.2f}'.format(result).ljust(20), 'Chromosome: {}'.format(top))
-    #     EvolutionaryAlgorithim.evolve(Population)
+    if to_do[TO_DO] is 'stats':
+        raw, bodyl = Chromosome.mapper(INSPECT)
+        results = tt.process_itinerary(raw, bodyl, _mode='delta_v')
+        print([results[k]['dv'] for k in range(len(results))])
+        print(sum([results[k]['dv'] for k in range(len(results))]))
+
+    if to_do is 'evolve':
+        count = 0
+        while Population.fittest[0] < 5:
+            # if count % 5 == 0:
+                # print(Population.current_generation)
+            result, top = Population.fittest[0], Population.fittest[1]
+            if result >= 0:
+                EvolutionaryAlgorithim.save_generation(Population)
+
+            print('Fitness: {:0.2f}'.format(result).ljust(20), 'Chromosome: {}'.format(top))
+            EvolutionaryAlgorithim.evolve(Population)
+            count+=1

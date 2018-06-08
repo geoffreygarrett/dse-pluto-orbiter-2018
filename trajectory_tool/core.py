@@ -54,6 +54,7 @@ color_orbit = '#888888'
 color_trans = '#444444'
 
 color_legs = ['#00FF66', '#00FFFF', '#FF00FF']
+color_legs = color_legs + [color_legs[0]]
 
 colors = ['#ec3941', '#ec1f28']
 
@@ -459,7 +460,7 @@ class TrajectoryTool(object):
             (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
                                    Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
 
-            v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
+            # v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
 
             # print(v_planet_exit)
             # print('r_ent: ', r_ent)
