@@ -4,6 +4,11 @@
 #
 # def vector_difference_magnitude(x1, x2):
 #     return np.linalg.norm(x2-x1)
+#
+# factor = {
+#     'mercury':
+#     'jupiter': 1.6
+# }
 
 factor = {
     'mercury':1.082,
@@ -26,11 +31,10 @@ factor = {
 
 }
 
-
 body_d_domain = {
           'mercury':{
                             'upper':  1.12E5,
-                            'lower': factor['mercury'] * 2440.
+                            'lower': factor['mercury'] * 2539.7
   },
       'venus':{
                             'upper': 6.16E5,
