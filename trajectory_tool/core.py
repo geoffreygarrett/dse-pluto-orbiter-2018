@@ -417,7 +417,7 @@ class TrajectoryTool(object):
             b_unit_v_exit = self.unit_vector(np.cross(v_s_p_i, n))
 
             # Check which direction the b_vector should go in.
-            if (self.angle_between_cc(b_unit_v_exit, np.negative(np.deepcopy(v_s_p_i))) > np.pi / 2 and self.angle_between_cc(np.negative(np.deepcopy(v_s_p_i)),
+            if (self.angle_between_cc(b_unit_v_exit, np.negative(deepcopy(v_s_p_i))) > np.pi / 2 and self.angle_between_cc(np.negative(deepcopy(v_s_p_i)),
                                                                                         b_unit_v_exit) > np.pi / 2):
                 b_vec_exit = b_unit_v_exit * b.value * (u.km)
             else:

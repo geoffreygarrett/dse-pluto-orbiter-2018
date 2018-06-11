@@ -454,9 +454,11 @@ if __name__ == '__main__':
         print(sum([results[k]['dv'] for k in range(len(results))]))
 
     if to_do[TO_DO] is 'evolve':
+        print('hello')
         count = 0
         while Population.fittest[0] < 5:
             try:
+                print('hi')
                 result, top = Population.fittest[0], Population.fittest[1]
                 if result >= 2.4:
                     EvolutionaryAlgorithim.save_generation(Population, 't1')
