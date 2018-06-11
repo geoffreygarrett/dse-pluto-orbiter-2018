@@ -12,11 +12,11 @@ import _thread
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.3
-POPULATION_SIZE = 1000
-SIMILARITY_FILTER = 0.90
+MUTATION_RATE = 0.1
+POPULATION_SIZE = 100
+SIMILARITY_FILTER = 1.0
 # ELITE_QUANTITY = 1.0
-CROSSOVER_THRESHOLD = 0.35
+CROSSOVER_THRESHOLD = 0.30
 
 FIRST_LEG_LIMIT_UPPER = 5250
 LAST_LEG_LIMIT_UPPER = 5860
@@ -40,7 +40,7 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
     _total_dur = sum(_raw_itinerary['durations'])
     try:
-        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='delta_v')
+        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='delta_v', verbose=False)
         delta_v_legs = [results[i]['dv'] for i in range(len(results))]
         delta_v = sum(delta_v_legs)
 
@@ -428,7 +428,8 @@ if __name__ == '__main__':
     # 0.37 2647 50519 21248 6931
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
-    INSPECT = '1847 50549 00000 8199'
+    # 0.69 2257 50698 20954 6998
+    INSPECT = '2257 50698 20954 6998'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -438,7 +439,7 @@ if __name__ == '__main__':
 
     # Population singleton setup.
     _population_size = POPULATION_SIZE
-    Population = Population(Chromosome, _population_size=_population_size, assists='2')
+    Population = Population(Chromosome, _population_size=_population_size, assists='1')
 
     if to_do[TO_DO] is 'plot':
         raw, bodyl = Chromosome.mapper(INSPECT)
@@ -470,8 +471,8 @@ if __name__ == '__main__':
                 raise
             # except:
             # report error and proceed
-            if count % 5 == 0:
-                print(Population.current_generation)
+            # if count % 5 == 0:
+            #     print(Population.current_generation)
 
     if to_do[TO_DO] is 'other':
         z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')

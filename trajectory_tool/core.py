@@ -123,8 +123,6 @@ class TrajectoryTool(object):
             for tof in flight_times:
                 epoch1 = epoch0 + time.TimeDelta(tof*u.d*365, scale='tdb')
                 _tof = epoch1-epoch0
-                print(epoch1)
-                print(epoch0)
                 ss1 = Orbit.from_body_ephem(body1, epoch1)
                 (v0, v), = iod.lambert(main_attractor.k, ss0.r, ss1.r, _tof)
                 lambert_solutions.append((v0, v))
@@ -209,7 +207,7 @@ class TrajectoryTool(object):
                                   epoch0=ss0.epoch, epoch1=ss1.epoch, ss0=ss0, ss1=ss1, sst=sst)
 
     def __init__(self):
-        self.N = 100
+        self.N = 1000
 
     def unit_vector(self, vector):
         """ Returns the unit vector of the vector.  """
@@ -352,10 +350,10 @@ class TrajectoryTool(object):
         delta_t_assist = 0
         v_planet_entry = v_planet_initial
         v_planet_exit = v_planet_initial
-        delta_delta_t = 20000
+        delta_delta_t = 200
+        iterations = 0
 
-        while delta_delta_t <= 1:
-
+        while delta_delta_t >= 100:
             # Parse body name in lower string form for trajectory plotter.
             body_assist_str = body_assisting.__str__().split(' ')[0].lower()
             body_next_str   = body_next.__str__().split(' ')[0].lower()
@@ -392,9 +390,8 @@ class TrajectoryTool(object):
             v_out = np.linalg.norm(v_s_p_i) * self.unit_vector(v_s_p_f) + v_planet_exit
 
             # Check to see if closest approach is below set body limit.
-            if r_p > r_atm:
+            if (r_p > r_atm) and (r_p <= 0.5*r_soi):
                 dv_extra = np.linalg.norm(v_s_f - v_out)
-                # print(v_s_f - v_out)
                 _return.append(dv_extra)
 
             else:
@@ -403,11 +400,11 @@ class TrajectoryTool(object):
 
             # Definition of plane of gravity assist
             n = np.cross(v_s_p_i, v_s_p_f)
-
             b_unit_v_enter = self.unit_vector(np.cross(v_s_p_f, n))
+
             # Check which direction the b_vector should go in.
             if (self.angle_between_cc(b_unit_v_enter, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
-                                                                                                b_unit_v_enter) > np.pi / 2):
+                                                                                        b_unit_v_enter) > np.pi / 2):
                 b_vec_enter = b_unit_v_enter * b.value * (u.km)
             else:
                 b_vec_enter = -b_unit_v_enter * b.value * (u.km)
@@ -421,7 +418,7 @@ class TrajectoryTool(object):
 
             # Check which direction the b_vector should go in.
             if (self.angle_between_cc(b_unit_v_exit, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
-                                                                                               b_unit_v_exit) > np.pi / 2):
+                                                                                        b_unit_v_exit) > np.pi / 2):
                 b_vec_exit = b_unit_v_exit * b.value * (u.km)
             else:
                 b_vec_exit = -b_unit_v_exit * b.value * (u.km)
@@ -436,7 +433,7 @@ class TrajectoryTool(object):
 
             # Calculating the hyperbolic anomaly
             def H(theta):
-                return np.arccosh((e + np.cos(theta)) / (1 + e * np.cos(theta)))
+                return np.arccosh(abs((e + np.cos(theta)) / (1 + e * np.cos(theta))))
 
             # Calculating the time since passage of perigee
             def t_p(H):
@@ -453,14 +450,22 @@ class TrajectoryTool(object):
             delta_delta_t = abs(delta_t_assist - delta_t_previous).to(u.s).value
 
             # Epoch during exit
-            print('delta_t_assist', delta_t_assist)
             epoch_exit = epoch_entry + time.TimeDelta(delta_t_assist)
 
             # New Lambert solution
-            (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
-                                   Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
 
-            # v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
+            try:
+                (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
+                                       Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
+            except AssertionError:
+                raise ValueError("The gravity assist is not possible...\n"
+                                 "Divergent time iteration.")
+
+            if iterations>=200:
+                raise ValueError("The gravity assist is not possible...\n"
+                                 "Divergent time iteration.")
+
+            v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
 
             # print(v_planet_exit)
             # print('r_ent: ', r_ent)
@@ -475,6 +480,7 @@ class TrajectoryTool(object):
             # print('r_p', r_p)
 
             v_s_f = v
+            iterations+=1
 
         # print('r_ent: ',r_ent)
         # print('r_ext: ',r_ext)
@@ -488,6 +494,7 @@ class TrajectoryTool(object):
         # print('r_p', r_p)
         # print(np.linalg.norm(r_ent))
         # print(np.linalg.norm(r_ext))
+        return _return
 
     def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, mode='fast', verification=False):
         _return = []
@@ -572,39 +579,17 @@ class TrajectoryTool(object):
         r_ent = x_vec.value+b_vec.value
 
         v_per = np.sqrt(body.k/r_p)*(1/e)
-        th_inf = np.arccos(-1/e)
-        H_inf = np.arccosh((e+np.cos(th_inf))/(1+e*np.cos(th_inf)))
-
         # t_p = np.sqrt((-a)**3/(body.k))*(e*np.sinh(H_inf)-H_inf)
 
         def H(theta):
-            return np.arccosh((e + np.cos(theta)) / (1 + e * np.cos(theta)))
+            return np.arccosh(abs((e + np.cos(theta)) / (1 + e * np.cos(theta))))
 
         def t_p(H):
             return np.sqrt((-a) ** 3 / (body.k)) * (e * np.sinh(H) - H)
 
-        # print('t_p: ',t_p.to(u.s))
-
-        # eq_r_t = Eq((1+a.to(u.km).value/r_p.to(u.km).value*(sympy.cosh(S('H'))-1) )*r_p.to(u.km).value + (S('t') - (sympy.sinh(S('H'))-S('H'))/(body.k.value/(-a.to(u.km).value)**3))*v_per.to(u.km/u.s).value, S('r'))
-        # eq_chH = Eq((e+sympy.cos(S('theta')))/
-        #             (1+e*sympy.cos(S('theta'))), sympy.cosh(S('H')))
-        # eq_r_H = Eq(S('r'), a.to(u.km).value*(1-e*sympy.cosh(S('H'))))
-        # eq_rsoi= Eq(S('r'), r_soi.value)
-        # eq_r_H = Eq(S('H'), sympy.cosh((a.value-S('r'))/(a.value*e)))
-
-        # solution = solve([eq_r_t, eq_rsoi, eq_chH, eq_r_H])
-
         theta_rsoi_exit = (2*np.pi - self.angle_between(r_ent, r_ext))/2
-
-
         delta_t_assist = 2*t_p(H(theta_rsoi_exit)).to(u.s)
 
-
-
-
-        # print(solution)
-
-        # sol= solve([plane_eq, rsoi_eq])
         if verification:
             _return = _return + [r_ent] + [r_p] + [e] + [a]
             print('r_entry = ', r_ent)
@@ -612,7 +597,6 @@ class TrajectoryTool(object):
             print('r_exit  =', r_ext)
             print('v_exit  =', v_s_p_f)
             print('r_p =', r_p)
-
 
         if set([mode]) < set(['plot2D', 'plot3D']):
 
@@ -630,7 +614,6 @@ class TrajectoryTool(object):
             tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
             ss.plot(ss_hyp2, label='test', color='0.8')
             ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
-
 
             if mode is 'plot2D':
                 plt.show()
@@ -712,13 +695,17 @@ class TrajectoryTool(object):
                     print('Optimising gravity assist...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
                 #   # DELTA V (NO GRAVITY ASSIST) PASSING BODY i (1)
                 _itinerary_data[i + 1]['dv'] = \
-                    self.optimise_gravity_assist(v_s_i=_itinerary_data[i + 1]['v']['a'],
-                                                 v_s_f=_itinerary_data[i + 1]['v']['d'],
-                                                 v_p=_itinerary_data[i + 1]['v']['p'],
-                                                 body=_itinerary_data[i + 1]['b'],
-                                                 epoch=_itinerary_data[i + 1]['d'],
-                                                 mode='fast')[0]
+                    self.refined_gravity_assist(v_s_i=_itinerary_data[i + 1]['v']['a'],
+                                                v_s_f_initial=_itinerary_data[i + 1]['v']['d'],
+                                                v_planet_initial=_itinerary_data[i + 1]['v']['p'],
+                                                body_assisting=_itinerary_data[i + 1]['b'],
+                                                body_next = _itinerary_data[i+2]['b'],
+                                                epoch_entry=_itinerary_data[i + 1]['d'],
+                                                epoch_next_body=_itinerary_data[i+2]['d'],
+                                                mode='fast')[0]
 
+            # def refined_gravity_assist(self, v_s_i, v_s_f_initial, v_planet_initial, body_assisting, body_next,
+            #                            epoch_entry, epoch_next_body, mode='fast', verification=False):
             # ARRIVAL BODY----------------------------------------------------------------------------------------------
             #   # ARRIVAL, PLANET  VELOCITY OF TARGET BODY i (N)
             _itinerary_data[len(_raw_itinerary['durations'])]['v']['a'] = \
