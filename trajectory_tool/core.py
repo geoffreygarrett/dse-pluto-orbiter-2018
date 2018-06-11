@@ -207,7 +207,7 @@ class TrajectoryTool(object):
                                   epoch0=ss0.epoch, epoch1=ss1.epoch, ss0=ss0, ss1=ss1, sst=sst)
 
     def __init__(self):
-        self.N = 1000
+        self.N = 350
 
     def unit_vector(self, vector):
         """ Returns the unit vector of the vector.  """

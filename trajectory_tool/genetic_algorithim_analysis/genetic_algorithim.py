@@ -18,8 +18,8 @@ SIMILARITY_FILTER = 1.0
 # ELITE_QUANTITY = 1.0
 CROSSOVER_THRESHOLD = 0.30
 
-FIRST_LEG_LIMIT_UPPER = 5250
-LAST_LEG_LIMIT_UPPER = 5860
+FIRST_LEG_LIMIT_UPPER = 6000
+LAST_LEG_LIMIT_UPPER = 6000
 
 planet_mapping = {'1': Mercury,
                   '2': Venus,
@@ -44,20 +44,20 @@ def fitness_function(chromosome_singleton, chromosome, tt):
         delta_v_legs = [results[i]['dv'] for i in range(len(results))]
         delta_v = sum(delta_v_legs)
 
-        # Propulsion leg penalty total
-        propulsion_total_penalty = 8
-
-        # First leg penalty
-        if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
-            first_leg_penalty_factor = 3
-        else:
-            first_leg_penalty_factor = 0
-
-        # Last leg penalty
-        if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
-            last_leg_penalty_factor = 1
-        else:
-            last_leg_penalty_factor = 0
+        # # Propulsion leg penalty total
+        # propulsion_total_penalty = 8
+        #
+        # # First leg penalty
+        # if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
+        #     first_leg_penalty_factor = 3
+        # else:
+        #     first_leg_penalty_factor = 0
+        #
+        # # Last leg penalty
+        # if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
+        #     last_leg_penalty_factor = 1
+        # else:
+        #     last_leg_penalty_factor = 0
 
         if _total_dur >= 24:
             duration_penalty = 1000
@@ -68,13 +68,12 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     except (ValueError, RuntimeError):  # Gravity assist/ Lambert solution not possible.
         delta_v = 200
         duration_penalty = 0
-        last_leg_penalty_factor = 0
-        first_leg_penalty_factor = 0
-        propulsion_total_penalty = 0
-
-    return (15.0 - delta_v - duration_penalty)
-
-            # - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor))     # Propulsion req.
+        # last_leg_penalty_factor = 0
+        # first_leg_penalty_factor = 0
+        # propulsion_total_penalty = 0
+        delta_v_legs = [0]
+    # return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor)
+    return 15.0 - delta_v - duration_penalty - delta_v_legs[0]
 
 
 class Chromosome(object):
@@ -429,7 +428,7 @@ if __name__ == '__main__':
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '2257 50698 20954 6998'
+    INSPECT = '2247 50698 20964 6948'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
