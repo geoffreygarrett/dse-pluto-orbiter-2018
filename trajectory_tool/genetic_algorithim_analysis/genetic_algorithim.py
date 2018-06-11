@@ -13,10 +13,10 @@ import _thread
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
 MUTATION_RATE = 0.3
-POPULATION_SIZE = 100
-SIMILARITY_FILTER = 1
+POPULATION_SIZE = 1000
+SIMILARITY_FILTER = 0.90
 # ELITE_QUANTITY = 1.0
-CROSSOVER_THRESHOLD = 0.5
+CROSSOVER_THRESHOLD = 0.35
 
 FIRST_LEG_LIMIT_UPPER = 5250
 LAST_LEG_LIMIT_UPPER = 5860
@@ -257,6 +257,7 @@ class Population(object):
         chromosome_list = generation_df['Chromosome'].tolist()
         drop_idx = []
         count=0
+        all_drop_idx = []
         for idx, chromo in enumerate(chromosome_list):
             unique = chromosome_list[idx_unique]
             if count is 0:
@@ -265,22 +266,16 @@ class Population(object):
                 similarity = self._chromosome.similarity(unique, chromo)
             count+=1
             if similarity >= percentage_similarity:
-                print('Unique: {}, Similarity: {:0.2f}, Dropping: {}'.format(unique, similarity, generation_df['Chromosome'][idx]))
+                # print('Unique: {}, Similarity: {:0.2f}, Dropping: {}'.format(unique, similarity, generation_df['Chromosome'][idx]))
+                self.add([self._chromosome.random_chromosome(self.random_durations(1))])
                 drop_idx.append(idx)
             elif len(drop_idx)>=1:
                 idx_unique = idx
-                generation_df.drop(generation_df.index[[drop_idx[0], drop_idx[-1]]], inplace=True)
-                drop_idx= []
-                generation_df.reset_index(drop=True)
+                drop_idx = []
+                all_drop_idx.append(drop_idx)
+        if len(drop_idx) > 1:
+            generation_df.drop(generation_df.index[[drop_idx[0], drop_idx[-1]]], inplace=True)
         return generation_df.reset_index(drop=True)
-        # return [x['']]
-
-    def _filter(self, generation_df, number, similarity_threshold=None):
-        # for row in generation_df:
-        #
-        # # filtered0 = generation_df.apply(self._chromosome.similarity(generation_df[]))
-        filtered1 = generation_df.nlargest(number, columns='Fitness').reset_index(drop=True)
-        return filtered1
 
     def __init__(self, _chromosome, _population_size, assists='any'):
         # chromosome singleton and schema format.
@@ -316,9 +311,8 @@ class Population(object):
 
     def refine(self):
         self._current_generation = self._current_generation.drop_duplicates()
-        # self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
-        # self._current_generation= self._remove_delinquents(self._current_generation)
         self._current_generation = self.elite_class(self._population_size)
+        self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
         return self._current_generation
 
     def crossover(self):
@@ -342,7 +336,8 @@ class Population(object):
         mutated_df['Chromosome'] = mutated_chromosomes
         collected_df = self._current_generation.append(mutated_df).drop_duplicates()
 
-        self._current_generation = self._filter(collected_df, _population_size)
+        # self._current_generation = self._filter(collected_df, _population_size)
+        self._current_generation = collected_df
         return self._current_generation
 
     def filter(self):
@@ -378,13 +373,13 @@ class Population(object):
 class EvolutionaryAlgorithim(object):
     @staticmethod
     def evolve(population):
+        population._generations += 1
         return EvolutionaryAlgorithim._mutate_population(EvolutionaryAlgorithim._crossover_population(population))
 
     @staticmethod
     def _crossover_population(population):
         children = population.crossover()
         population.add(children)
-        population.refine()
         return population
 
     @staticmethod
@@ -429,7 +424,11 @@ if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
     TO_DO = 1
-    INSPECT = '1619 40492 00000 8267'
+    # 1.25 2642 50549 30658 7364
+    # 0.37 2647 50519 21248 6931
+    # - 1.37 8241 50411 61476 6857
+    # 2.46 1847 50549 00000 8199
+    INSPECT = '1847 50549 00000 8199'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -439,7 +438,7 @@ if __name__ == '__main__':
 
     # Population singleton setup.
     _population_size = POPULATION_SIZE
-    Population = Population(Chromosome, _population_size=_population_size, assists='1')
+    Population = Population(Chromosome, _population_size=_population_size, assists='2')
 
     if to_do[TO_DO] is 'plot':
         raw, bodyl = Chromosome.mapper(INSPECT)
@@ -456,11 +455,13 @@ if __name__ == '__main__':
         while Population.fittest[0] < 5:
             try:
                 result, top = Population.fittest[0], Population.fittest[1]
-                if result >= 2.0:
+                if result >= 2.4:
                     EvolutionaryAlgorithim.save_generation(Population, 't1')
 
-                print('Fitness: {:0.2f}'.format(result).ljust(20), 'Chromosome: {}'.format(top))
+                print('Gen: {}'.format(Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
+                      'Chromosome: {}'.format(top))
                 EvolutionaryAlgorithim.evolve(Population)
+                Population.refine()
                 count += 1
 
             except (KeyboardInterrupt, SystemExit):
@@ -469,8 +470,8 @@ if __name__ == '__main__':
                 raise
             # except:
             # report error and proceed
-            # if count % 5 == 0:
-                # print(Population.current_generation)
+            if count % 5 == 0:
+                print(Population.current_generation)
 
     if to_do[TO_DO] is 'other':
         z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')
