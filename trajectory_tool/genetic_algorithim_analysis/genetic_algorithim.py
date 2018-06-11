@@ -73,7 +73,7 @@ def fitness_function(chromosome_singleton, chromosome, tt):
         # propulsion_total_penalty = 0
         delta_v_legs = [0]
     # return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor)
-    return 15.0 - delta_v - duration_penalty - delta_v_legs[0]
+    return 15.0 - delta_v - duration_penalty
 
 
 class Chromosome(object):
@@ -379,6 +379,8 @@ class EvolutionaryAlgorithim(object):
     def _crossover_population(population):
         children = population.crossover()
         population.add(children)
+        # population.add(['1449 50662 00000 7999'])
+
         return population
 
     @staticmethod
@@ -422,13 +424,14 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 1
+    TO_DO = 0
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
+    # 0.98 2247 50699 20963 6999
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '2247 50698 20964 6948'
+    INSPECT = '1449 50662 00000 7999'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -460,7 +463,9 @@ if __name__ == '__main__':
 
                 print('Gen: {}'.format(Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
                       'Chromosome: {}'.format(top))
+
                 EvolutionaryAlgorithim.evolve(Population)
+
                 Population.refine()
                 count += 1
 
@@ -474,9 +479,10 @@ if __name__ == '__main__':
             #     print(Population.current_generation)
 
     if to_do[TO_DO] is 'other':
-        z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')
-        print(Chromosome.similarity(z1,z2))
-        print(difflib.SequenceMatcher(a=z1,b=z2).ratio())
+        print(fitness_function(Chromosome, '1449 50662 00000 7999', tt))
+        # z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')
+        # print(Chromosome.similarity(z1,z2))
+        # print(difflib.SequenceMatcher(a=z1,b=z2).ratio())
         # print(z1)
         # print(z2)
         # X1 = [pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_{}'.format(i)))['Fitness'].tolist()[0] for i in range(124)]

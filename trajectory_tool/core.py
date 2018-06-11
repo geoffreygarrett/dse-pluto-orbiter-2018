@@ -417,7 +417,7 @@ class TrajectoryTool(object):
             b_unit_v_exit = self.unit_vector(np.cross(v_s_p_i, n))
 
             # Check which direction the b_vector should go in.
-            if (self.angle_between_cc(b_unit_v_exit, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
+            if (self.angle_between_cc(b_unit_v_exit, np.negative(np.deepcopy(v_s_p_i))) > np.pi / 2 and self.angle_between_cc(np.negative(np.deepcopy(v_s_p_i)),
                                                                                         b_unit_v_exit) > np.pi / 2):
                 b_vec_exit = b_unit_v_exit * b.value * (u.km)
             else:
@@ -425,7 +425,7 @@ class TrajectoryTool(object):
 
             # Calculating the position on the SOI for exit
             x_mag_exit = np.sqrt(r_soi.value ** 2 - b.value ** 2)
-            x_vec_exit = self.unit_vector(np.negative(v_s_p_f)) * x_mag_exit
+            x_vec_exit = self.unit_vector(v_s_p_f) * x_mag_exit
             r_ext = x_vec_exit.value + b_vec_exit.value
 
             # Velocity at perigee
@@ -461,7 +461,7 @@ class TrajectoryTool(object):
                 raise ValueError("The gravity assist is not possible...\n"
                                  "Divergent time iteration.")
 
-            if iterations>=200:
+            if iterations >= 200:
                 raise ValueError("The gravity assist is not possible...\n"
                                  "Divergent time iteration.")
 
@@ -702,7 +702,7 @@ class TrajectoryTool(object):
                                                 body_next = _itinerary_data[i+2]['b'],
                                                 epoch_entry=_itinerary_data[i + 1]['d'],
                                                 epoch_next_body=_itinerary_data[i+2]['d'],
-                                                mode='fast')[0]
+                                                mode='fast')[-1]
 
             # def refined_gravity_assist(self, v_s_i, v_s_f_initial, v_planet_initial, body_assisting, body_next,
             #                            epoch_entry, epoch_next_body, mode='fast', verification=False):
