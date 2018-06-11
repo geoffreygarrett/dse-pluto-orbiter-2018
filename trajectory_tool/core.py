@@ -400,7 +400,7 @@ class TrajectoryTool(object):
 
             # Definition of plane of gravity assist
             n = np.cross(v_s_p_i, v_s_p_f)
-            b_unit_v_enter = self.unit_vector(np.cross(v_s_p_f, n))
+            b_unit_v_enter = self.unit_vector(np.cross(v_s_p_i, n))
 
             # Check which direction the b_vector should go in.
             if (self.angle_between_cc(b_unit_v_enter, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
@@ -414,10 +414,10 @@ class TrajectoryTool(object):
             x_vec_ent = self.unit_vector(np.negative(v_s_p_i)) * x_mag_ent
             r_ent = x_vec_ent.value + b_vec_enter.value
 
-            b_unit_v_exit = self.unit_vector(np.cross(v_s_p_i, n))
+            b_unit_v_exit = self.unit_vector(np.cross(v_s_p_f, n))
 
             # Check which direction the b_vector should go in.
-            if (self.angle_between_cc(b_unit_v_exit, np.negative(deepcopy(v_s_p_i))) > np.pi / 2 and self.angle_between_cc(np.negative(deepcopy(v_s_p_i)),
+            if (self.angle_between_cc(b_unit_v_exit, np.negative(v_s_p_i)) > np.pi / 2 and self.angle_between_cc(np.negative(v_s_p_i),
                                                                                         b_unit_v_exit) > np.pi / 2):
                 b_vec_exit = b_unit_v_exit * b.value * (u.km)
             else:
