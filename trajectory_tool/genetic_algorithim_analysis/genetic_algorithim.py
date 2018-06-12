@@ -12,11 +12,11 @@ import _thread
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.3
-POPULATION_SIZE = 10
+MUTATION_RATE = 0.2
+POPULATION_SIZE = 1000
 SIMILARITY_FILTER = 1.0
 # ELITE_QUANTITY = 1.0
-CROSSOVER_THRESHOLD = 0.3
+CROSSOVER_THRESHOLD = 0.1
 
 FIRST_LEG_LIMIT_UPPER = 6000
 LAST_LEG_LIMIT_UPPER = 6000
@@ -40,7 +40,7 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
     _total_dur = sum(_raw_itinerary['durations'])
     try:
-        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='delta_v', verbose=False)
+        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='dv', verbose=False)
         delta_v_legs = [results[i]['dv'] for i in range(len(results))]
         delta_v = sum(delta_v_legs)
 
@@ -422,24 +422,20 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 1
+    TO_DO = 2
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
     # 0.98 2247 50699 20963 6999
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '1058 50748 00000 7758'
+    INSPECT = '8086 61268 00000 7485'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
     _total_schema = '0000 00000 00000 0000'
     Chromosome = Chromosome(_unary_schema=_unary_schema,
                             _total_schema=_total_schema)
-
-    # Population singleton setup.
-    _population_size = POPULATION_SIZE
-    Population = Population(Chromosome, _population_size=_population_size, assists='1')
 
     if to_do[TO_DO] is 'plot':
         raw, bodyl = Chromosome.mapper(INSPECT)
@@ -449,9 +445,11 @@ if __name__ == '__main__':
         raw, bodyl = Chromosome.mapper(INSPECT)
         results = tt.process_itinerary(raw, bodyl, _mode='delta_v')
         print([results[k]['dv'] for k in range(len(results))])
-        print(sum([results[k]['dv'] for k in range(len(results))]))
 
     if to_do[TO_DO] is 'evolve':
+        # Population singleton setup.
+        _population_size = POPULATION_SIZE
+        Population = Population(Chromosome, _population_size=_population_size, assists='1')
         count = 0
         while Population.fittest[0] < 5:
             try:
