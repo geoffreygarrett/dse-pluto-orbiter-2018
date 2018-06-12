@@ -1,6 +1,6 @@
 from random import randint, choice, uniform, random
 from datetime import datetime
-from trajectory_tool.core import *
+from trajectory_tool.core2 import *
 from trajectory_tool.genetic_algorithim_analysis import DIR_GA
 import scipy.stats as ss
 import os
@@ -12,11 +12,11 @@ import _thread
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.2
-POPULATION_SIZE = 1000
-SIMILARITY_FILTER = 1.0
+MUTATION_RATE = 0.3
+POPULATION_SIZE = 200
+SIMILARITY_FILTER = 0.75
 # ELITE_QUANTITY = 1.0
-CROSSOVER_THRESHOLD = 0.1
+CROSSOVER_THRESHOLD = 0.4
 
 FIRST_LEG_LIMIT_UPPER = 6000
 LAST_LEG_LIMIT_UPPER = 6000
@@ -40,24 +40,30 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
     _total_dur = sum(_raw_itinerary['durations'])
     try:
-        results = tt.process_itinerary(_raw_itinerary, _body_list, _mode='dv', verbose=False)
+        results = tt.stationary_process_itinerary(_raw_itinerary, _body_list, mode='full', verbose=False)
         delta_v_legs = [results[i]['dv'] for i in range(len(results))]
         delta_v = sum(delta_v_legs)
 
-        # # Propulsion leg penalty total
-        # propulsion_total_penalty = 8
-        #
-        # # First leg penalty
-        # if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
-        #     first_leg_penalty_factor = 3
-        # else:
-        #     first_leg_penalty_factor = 0
-        #
-        # # Last leg penalty
-        # if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
-        #     last_leg_penalty_factor = 1
-        # else:
-        #     last_leg_penalty_factor = 0
+        if list(chromosome.split(' ')[1])[0] is '3':
+            earth_penalty = 1000
+
+        else:
+            earth_penalty = 0
+
+        # Propulsion leg penalty total
+        propulsion_total_penalty = 8
+
+        # First leg penalty
+        if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
+            first_leg_penalty_factor = 3
+        else:
+            first_leg_penalty_factor = 0
+
+        # Last leg penalty
+        if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
+            last_leg_penalty_factor = 1
+        else:
+            last_leg_penalty_factor = 0
 
         if _total_dur >= 24:
             duration_penalty = 1000
@@ -68,12 +74,13 @@ def fitness_function(chromosome_singleton, chromosome, tt):
     except (ValueError, RuntimeError):  # Gravity assist/ Lambert solution not possible.
         delta_v = 200
         duration_penalty = 0
-        # last_leg_penalty_factor = 0
-        # first_leg_penalty_factor = 0
-        # propulsion_total_penalty = 0
+        earth_penalty = 0
+        last_leg_penalty_factor = 0
+        first_leg_penalty_factor = 0
+        propulsion_total_penalty = 0
         delta_v_legs = [0]
-    # return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor)
-    return 15.0 - delta_v - duration_penalty
+    return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor) - earth_penalty
+    # return 15.0 - delta_v - duration_penalty - earth_penalty
 
 
 class Chromosome(object):
@@ -422,14 +429,19 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 2
+    TO_DO = 1
+    """
+    -0.5 1464 50697 00000 7359
+    Gen: 606             Fitness: -0.04       Chromosome: 8841 61111 00000 7636
+
+    """
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
     # 0.98 2247 50699 20963 6999
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '8086 61268 00000 7485'
+    INSPECT = '2233 40153 50354 8217'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -439,17 +451,17 @@ if __name__ == '__main__':
 
     if to_do[TO_DO] is 'plot':
         raw, bodyl = Chromosome.mapper(INSPECT)
-        results = tt.process_itinerary(raw, bodyl, _mode='plot3D')
+        results = tt.stationary_process_itinerary(raw, bodyl, mode='plot3D')
 
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
-        results = tt.process_itinerary(raw, bodyl, _mode='delta_v')
+        results = tt.stationary_process_itinerary(raw, bodyl, mode='full')
         print([results[k]['dv'] for k in range(len(results))])
 
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.
         _population_size = POPULATION_SIZE
-        Population = Population(Chromosome, _population_size=_population_size, assists='1')
+        Population = Population(Chromosome, _population_size=_population_size, assists='any')
         count = 0
         while Population.fittest[0] < 5:
             try:

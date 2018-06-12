@@ -1,14 +1,16 @@
-# import numpy as np
-#
-# def recursive_bisection(x_limits, method='minimise'):
-#
-# def vector_difference_magnitude(x1, x2):
-#     return np.linalg.norm(x2-x1)
-#
-# factor = {
-#     'mercury':
-#     'jupiter': 1.6
-# }
+
+
+
+
+import plotly
+from collections import namedtuple
+KEY = 'kHLfFnsPiyxyAfWXgLN6'
+USER = 'Jones1311'
+plotly.tools.set_credentials_file(username=USER, api_key=KEY)
+lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1 sst')
+gravass_parameters = namedtuple('gravass_parameters', 'a_i a_f e_i e_f v_inf_i v_inf_f v_planet_i v_planet_f r_p_dv '
+                                                      'v_p_i v_p_f t_p_i t_p_f')
+
 
 factor = {
     'mercury':1.082,

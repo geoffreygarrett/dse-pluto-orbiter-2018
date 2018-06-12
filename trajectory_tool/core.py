@@ -16,14 +16,8 @@ from scipy.spatial import Delaunay
 key = 'kHLfFnsPiyxyAfWXgLN6'
 user = 'Jones1311'
 
-from sympy import Symbol, Eq, sqrt, solve, var, S, plotting, plot
-import sympy
-from plotly.offline import init_notebook_mode
 import plotly
 plotly.tools.set_credentials_file(username=user, api_key=key)
-# init_notebook_mode(connected=True)
-
-# from trajectory_tool.monte_carlo_analysis.case_gen import pseudo_distance
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,13 +29,8 @@ from poliastro.plotting import OrbitPlotter, OrbitPlotter3D
 from poliastro.twobody import Orbit
 from poliastro.util import time_range
 from trajectory_tool.helper import body_d_domain
-from pprint import pprint
-#from trajectory_tool.grav_ass.hyperbolic_calculator_resources2 import grav_ass, angle_check
-from scipy.optimize import minimize_scalar
-from trajectory_tool.helper import body_d_domain
 
 lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1, sst')
-# r0 = lambert_parameters.r0
 
 plt.style.use("seaborn")
 solar_system_ephemeris.set("jpl")
