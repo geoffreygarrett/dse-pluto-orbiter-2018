@@ -33,17 +33,14 @@ def do_runner(itinerary_folder):
 
     # Load all cases to run form the descr files
     cases = []
-    next_case = 0
-    for descr_file in case_descr_files.copy():
+    for descr_file in sorted(case_descr_files.copy()):
         with open(descr_file, 'r') as f:
             for line in f.readlines():
                 if line[0].isdigit():
                     case_num = eval(line.split(':')[0].strip())
-                    if case_num == next_case:
-                        cases.append({'id': case_num,
-                                      'launch_date': datetime.datetime.strptime(line.split(':')[1].split(',', maxsplit=1)[0].strip(), '%Y-%m-%d'),
-                                      'durations': eval(line.split(':')[1].split(',', maxsplit=1)[1].strip())})
-                        next_case += 1
+                    cases.append({'id': case_num,
+                                  'launch_date': datetime.datetime.strptime(line.split(':')[1].split(',', maxsplit=1)[0].strip(), '%Y-%m-%d'),
+                                  'durations': eval(line.split(':')[1].split(',', maxsplit=1)[1].strip())})
 
     # Compute legs
     tt = TrajectoryTool()
@@ -97,6 +94,9 @@ sols_string = []
 for sol in sols2send_3:
     sol_string = connect(sol)
     sols_string.append(sol_string)
+
+do_runner('earth-jupiter-pluto')
+exit()
 
 print(sols_string)
 for sol in sols_string:

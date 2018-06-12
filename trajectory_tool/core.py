@@ -389,15 +389,6 @@ class TrajectoryTool(object):
             # Transform velocity back to heliocentric reference frame.
             v_out = np.linalg.norm(v_s_p_i) * self.unit_vector(v_s_p_f) + v_planet_exit
 
-            # Check to see if closest approach is below set body limit.
-            if (r_p > r_atm) and (r_p <= 0.5*r_soi):
-                dv_extra = np.linalg.norm(v_s_f - v_out)
-                _return.append(dv_extra)
-
-            else:
-                raise ValueError("The gravity assist is not possible...\n"
-                                 "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
-
             # Definition of plane of gravity assist
             n = np.cross(v_s_p_i, v_s_p_f)
             b_unit_v_enter = self.unit_vector(np.cross(v_s_p_i, n))
@@ -455,8 +446,8 @@ class TrajectoryTool(object):
             # New Lambert solution
 
             try:
-                (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
-                                       Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
+                 (v, v0), = iod.lambert(Sun.k, Orbit.from_body_ephem(body_assisting, epoch_exit).r + r_ext*(u.km),
+                                   Orbit.from_body_ephem(body_next, epoch_next_body).r, epoch_next_body-epoch_exit)
             except AssertionError:
                 raise ValueError("The gravity assist is not possible...\n"
                                  "Divergent time iteration.")
@@ -464,24 +455,25 @@ class TrajectoryTool(object):
             if iterations >= 200:
                 raise ValueError("The gravity assist is not possible...\n"
                                  "Divergent time iteration.")
+            # print(iterations)
+            # print(delta_t_assist)
 
             v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
 
-            # print(v_planet_exit)
-            # print('r_ent: ', r_ent)
-            # print('r_ext: ', r_ext)
-            # print('v_s_f: ', v_s_f)
-            # print('v_s_i: ', v_s_i)
-            # print('v_s_p_f', v_s_p_f)
-            # print('v_s_p_i', v_s_p_i)
-            # print('dv_extra:', dv_extra)
-            # print('dv_elements:', v_s_f - v_out)
-            # print('delta_t_assist', delta_t_assist)
-            # print('r_p', r_p)
-
             v_s_f = v
-            iterations+=1
 
+            # Check to see if closest approach is below set body limit.
+            if (r_p > r_atm) and (r_p <= 0.5*r_soi):
+                dv_extra = np.linalg.norm(v_s_f - v_out)
+                _return.append(dv_extra)
+
+            else:
+                raise ValueError("The gravity assist is not possible...\n"
+                                 "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
+
+            iterations += 1
+
+        return _return
         # print('r_ent: ',r_ent)
         # print('r_ext: ',r_ext)
         # print('v_s_f: ',v_s_f)
