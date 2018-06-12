@@ -3,12 +3,9 @@ Created by Alejandro Daniel Noel
 """
 import copy
 
+import matplotlib.pyplot as plt
 import numpy as np
 from ale_solar_system.solar_system import SolarSystem
-
-import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
 
 
 def unit_vector(vector):
@@ -81,8 +78,10 @@ def get_eclipse_time(mu, r_b, lan, i, e, rp, epoch):
     a = rp / (1 - e)
     orbital_period = 2 * np.pi * np.sqrt(a ** 3 / mu)
 
-    vec_sc = []
+    vec_sc_list = []
     mask_occultation = []
+    steps_occultation = 0
+    steps_eclipse = 0
     for t in np.linspace(0, orbital_period, 100):
         x, y = orbit_coords_2d(mu, e, rp, t)
 
@@ -92,25 +91,32 @@ def get_eclipse_time(mu, r_b, lan, i, e, rp, epoch):
                             [s_o, c_o * c_i, -c_o * s_i],
                             [0, s_i, c_i]])
 
-        vec_3d_p = np.matmul(rot_mat, (x, y, 0))    # apply inclination and longitude of ascending node
+        vec_3d_p = np.matmul(rot_mat, (x, y, 0))  # apply inclination and longitude of ascending node
         # Rotate the pluto orbit ref system so that the x-axis points towards the sun
         new_vec_sc = np.matmul(rotation_mat_between_vectors((0.0, 0.0, 1.0), n_pc), vec_3d_p)
         rad_dist_ocul = np.linalg.norm(np.cross(new_vec_sc, vec_pe)) / np.linalg.norm(vec_pe)
-        print(np.linalg.norm(vec_3d_p), rad_dist_ocul)
-        mask_occultation.append(rad_dist_ocul <= r_b and angle_between(vec_pe, new_vec_sc) < np.pi * 0.5)
-        vec_sc.append(new_vec_sc)
+        rad_dist_ecl = np.linalg.norm(np.cross(new_vec_sc, vec_ps)) / np.linalg.norm(vec_ps)
+        # print(np.linalg.norm(vec_3d_p), rad_dist_ocul)
+        if rad_dist_ocul <= r_b and angle_between(vec_pe, new_vec_sc) < np.pi * 0.5:
+            steps_occultation += 1
+            mask_occultation.append(True)
+        else:
+            mask_occultation.append(False)
+        if rad_dist_ecl <= r_b and angle_between(vec_ps, new_vec_sc) < np.pi * 0.5:
+            steps_eclipse += 1
+        vec_sc_list.append(new_vec_sc)
 
     vec_charon = []
     for t in np.linspace(0.0, 7.0, 100):
         vcs = ss.coordinates_of('charon', epoch + t, ref_body='pluto') * 1000
         vec_charon.append(vcs)
 
-    minx = min(vec_sc[0] + vec_charon[0])
-    miny = min(vec_sc[1] + vec_charon[1])
-    minz = min(vec_sc[2] + vec_charon[2])
-    maxx = max(vec_sc[0] + vec_charon[0])
-    maxy = max(vec_sc[1] + vec_charon[1])
-    maxz = max(vec_sc[2] + vec_charon[2])
+    minx = min(vec_sc_list[0] + vec_charon[0])
+    miny = min(vec_sc_list[1] + vec_charon[1])
+    minz = min(vec_sc_list[2] + vec_charon[2])
+    maxx = max(vec_sc_list[0] + vec_charon[0])
+    maxy = max(vec_sc_list[1] + vec_charon[1])
+    maxz = max(vec_sc_list[2] + vec_charon[2])
     midx = (minx + maxx) * 0.5
     midy = (miny + maxy) * 0.5
     midz = (minz + maxz) * 0.5
@@ -119,10 +125,10 @@ def get_eclipse_time(mu, r_b, lan, i, e, rp, epoch):
     vec_pe = unit_vector(vec_pe) * 10000000.0
     vec_ps = unit_vector(vec_ps) * 10000000.0
 
-    mpl.rcParams['legend.fontsize'] = 10
+    # mpl.rcParams['legend.fontsize'] = 10
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    for x, y, z, mask in zip(*list(zip(*vec_sc)), mask_occultation):
+    for x, y, z, mask in zip(*list(zip(*vec_sc_list)), mask_occultation):
         ax.scatter(x, y, z, color='red' if mask else 'green', marker='.')
     ax.plot(*list(zip(*vec_charon)), label='Charon orbit')
     ax.plot((0, vec_pe[0]), (0, vec_pe[1]), (0, vec_pe[2]), label="Earth-Pluto vector")
@@ -134,13 +140,37 @@ def get_eclipse_time(mu, r_b, lan, i, e, rp, epoch):
     ax.set_zlim((midz - mid_range, midz + mid_range))
     ax.legend()
     plt.show()
+    return orbital_period, orbital_period * steps_occultation / len(vec_sc_list), orbital_period * steps_eclipse / len(vec_sc_list)
 
 
 if __name__ == '__main__':
-    print(get_eclipse_time(mu=8.7e11,
-                           r_b=1188000.0,
-                           lan=np.radians(20.0),
-                           i=np.radians(73.0),
-                           e=0.25,
-                           rp=1588000.0,
-                           epoch=2458275.5))
+
+    oc = []
+    ec = []
+    lans = np.arange(0.0, 365, 2)
+    orbit_p = 0
+
+    for lan in lans:
+        a, b, c = get_eclipse_time(mu=8.7e11,
+                                   r_b=1188000.0,
+                                   lan=np.radians(lan),
+                                   i=np.radians(73.0),
+                                   e=0.25,
+                                   rp=1588000.0,
+                                   epoch=2458275.5)
+        oc.append(100 * b / a)
+        ec.append(100 * c / a)
+        orbit_p = a
+
+    plt.plot(lans, oc, label="Earth occultation")
+    plt.plot(lans, ec, label="Solar eclipse")
+    plt.xlim((0, 360))
+    plt.ylim((0, 30))
+    plt.grid(linewidth=0.5)
+    plt.xlabel("Longitude of ascending node [deg]")
+    plt.ylabel("Eclipse time [%]")
+    plt.legend()
+    plt.title("Orbit around Pluto. Period = {:.1f}s".format(orbit_p))
+    plt.tight_layout()
+
+    plt.show()

@@ -44,6 +44,10 @@ class Trajectory:
             return float(self.delta_v_dep_arr[-1]) + float(sum(self.delta_v_assists)) + (extra_dep if extra_dep > 0.0 else 0.0)
 
 
+def aleInterpol(x, y, d):
+    return AleInterpol(x, y, d).evaluate
+
+
 class AleInterpol:
     def __init__(self, x, y, d):
         self.x = np.array(x)
@@ -51,3 +55,11 @@ class AleInterpol:
         self.z = np.array(d)
 
     def evaluate(self, x, y):
+        mindist = 1000000
+        bestd = None
+        for i in range(self.x.size):
+            dist = (self.x[i] - x) ** 2 + (self.y[i] - y) ** 2
+            if dist < mindist:
+                mindist = dist
+                bestd = self.z[i]
+        return bestd
