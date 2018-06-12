@@ -79,4 +79,5 @@ def do_booster(itinerary_string):
                   open(os.path.join(boosted_dir, "boosted_cases_{}.json".format(index_bar)), 'w'),
                   indent=4)
 
-do_booster(folder)
+do_booster('earth-jupiter-pluto')
+# do_booster(folder)

@@ -23,14 +23,12 @@ class SolarSystem:
         'VENUS_BARYCENTER': [2, 'plu055.bsp'],
         'EARTH_BARYCENTER': [3, 'plu055.bsp'],
         'MARS_BARYCENTER': [4, 'plu055.bsp'],
-        'MARS': [4, 'plu055.bsp'],
         'JUPITER_BARYCENTER': [5, 'plu055.bsp'],
-        'JUPITER': [5, 'plu055.bsp'],
         'SATURN_BARYCENTER': [6, 'plu055.bsp'],
-        'SATURN': [6, 'plu055.bsp'],
         'URANUS_BARYCENTER': [7, 'plu055.bsp'],
         'NEPTUNE_BARYCENTER': [8, 'plu055.bsp'],
         'PLUTO_BARYCENTER': [9, 'plu055.bsp'],
+        'PLUTO': [9, 'plu055.bsp'],
         'SUN': [10, 'plu055.bsp'],
         'MOON': [301, 'plu055.bsp'],
         'EARTH': [399, 'plu055.bsp'],
@@ -41,7 +39,7 @@ class SolarSystem:
         'HYDRA': [903, 'de432s.bsp'],
         'KERBEROS': [904, 'de432s.bsp'],
         'STYX': [905, 'de432s.bsp'],
-        'PLUTO': [999, 'de432s.bsp'],
+        # 'PLUTO': [999, 'de432s.bsp'],
     }
 
     def __init__(self):
@@ -57,7 +55,12 @@ class SolarSystem:
         """
         Returns the NAIF id number for the given name of the body/element.
         """
-        return self.naif_ids[body_name.strip().upper().replace(' ', '_')][0]
+        body_name = body_name.strip().upper().replace(' ', '_')
+        if body_name not in self.naif_ids.keys():
+            if "BARYCENTER" not in body_name:
+                if body_name + '_BARYCENTER' in self.naif_ids.keys():
+                    body_name += '_BARYCENTER'
+        return self.naif_ids[body_name][0]
 
     def element_for_id(self, naif_id: int):
         """
@@ -146,6 +149,7 @@ class SolarSystem:
 if __name__ == "__main__":
     solar_system = SolarSystem()
 
+    solar_system.id_for_body('jupiter')
 
     def unit_vector(vector):
         return vector / np.linalg.norm(vector)
