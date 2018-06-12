@@ -494,7 +494,22 @@ class TrajectoryTool(object):
         # print('r_p', r_p)
         # print(np.linalg.norm(r_ent))
         # print(np.linalg.norm(r_ext))
-        return _return
+        if verification:
+            print('r_ent: ',r_ent)
+            print('r_ext: ',r_ext)
+            print('v_s_f: ',v_s_f)
+            print('v_s_i: ',v_s_i)
+            print('v_s_p_f', v_s_p_f)
+            print('v_s_p_i', v_s_p_i)
+            print('dv_extra:',dv_extra)
+            print('dv_elements:',v_s_f-v_out)
+            print('delta_t_assist', delta_t_assist)
+            print('r_p', r_p)
+            print("Exit Epoch: ", epoch_exit)
+            return epoch_exit, epoch_entry
+
+        else:
+            return _return
 
     def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, mode='fast', verification=False):
         _return = []
