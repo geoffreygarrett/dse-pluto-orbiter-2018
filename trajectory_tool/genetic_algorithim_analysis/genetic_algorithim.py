@@ -53,17 +53,17 @@ def fitness_function(chromosome_singleton, chromosome, tt):
         # Propulsion leg penalty total
         propulsion_total_penalty = 8
 
-        # First leg penalty
-        if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
-            first_leg_penalty_factor = 3
-        else:
-            first_leg_penalty_factor = 0
-
-        # Last leg penalty
-        if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
-            last_leg_penalty_factor = 1
-        else:
-            last_leg_penalty_factor = 0
+        # # First leg penalty
+        # if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
+        #     first_leg_penalty_factor = 3
+        # else:
+        #     first_leg_penalty_factor = 0
+        #
+        # # Last leg penalty
+        # if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
+        #     last_leg_penalty_factor = 1
+        # else:
+        #     last_leg_penalty_factor = 0
 
         if _total_dur >= 24:
             duration_penalty = 1000
@@ -79,8 +79,8 @@ def fitness_function(chromosome_singleton, chromosome, tt):
         first_leg_penalty_factor = 0
         propulsion_total_penalty = 0
         delta_v_legs = [0]
-    return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor) - earth_penalty
-    # return 15.0 - delta_v - duration_penalty - earth_penalty
+    # return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor) - earth_penalty
+    return 15.0 - delta_v - duration_penalty - earth_penalty
 
 
 class Chromosome(object):
@@ -429,7 +429,7 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 1
+    TO_DO = 0
     """
     -0.5 1464 50697 00000 7359
     Gen: 606             Fitness: -0.04       Chromosome: 8841 61111 00000 7636
@@ -441,7 +441,7 @@ if __name__ == '__main__':
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '2233 40153 50354 8217'
+    INSPECT = '1847 50549 00000 8197'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -467,7 +467,7 @@ if __name__ == '__main__':
             try:
                 result, top = Population.fittest[0], Population.fittest[1]
                 if result >= 2.4:
-                    EvolutionaryAlgorithim.save_generation(Population, 't1')
+                    EvolutionaryAlgorithim.save_generation(Population, 't2')
 
                 print('Gen: {}'.format(Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
                       'Chromosome: {}'.format(top))

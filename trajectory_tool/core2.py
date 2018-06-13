@@ -28,6 +28,7 @@ from poliastro.util import time_range
 plt.style.use("seaborn")
 solar_system_ephemeris.set("jpl")
 color_legs = ['#00FF66', '#00FFFF', '#FF00FF']
+color_legs2 = ['#00FF66', '#33c7ff', '#FF00FF', '#00FF66']
 color_legs = color_legs + [color_legs[0]]
 colors = ['#ec3941', '#ec1f28']
 
@@ -362,13 +363,13 @@ class TrajectoryTool(object):
 
             for i in range(len(_raw_itinerary['durations']) + 1):
                 frame.plot_trajectory(_itinerary_plot_data[i]['rr'], label=_itinerary_data[i]['b'],
-                                      color='green')
+                                      color=color_legs2[i])
 
             for i in range(len(_raw_itinerary['durations'])):
                 frame.plot_trajectory(
                     _itinerary_plot_data[i + 1]['tp'].sample(_itinerary_data[i + 1]['tv'])[-1],
                     label="Leg {}".format(i + 1),
-                    color=color_legs[i],
+                    color=color_legs[i+1],
                 )
 
             frame._redraw_attractor(0.25 * 10 ** (8) * u.km)
@@ -381,7 +382,7 @@ class TrajectoryTool(object):
             else:
                 frame.set_view(30 * u.deg, 260 * u.deg, distance=3 * u.km)
                 # frame.show(title="EJP Example")
-                frame.savefig("EJPExample.png", title="EJP Example trajectory sequence")
+                frame.savefig("EJPExample.png", title="EJP Optimal trajectory sequence")
 
         # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
         if verbose:
