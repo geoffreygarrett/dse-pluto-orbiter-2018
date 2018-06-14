@@ -8,8 +8,22 @@ KEY = 'kHLfFnsPiyxyAfWXgLN6'
 USER = 'Jones1311'
 plotly.tools.set_credentials_file(username=USER, api_key=KEY)
 lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1 sst')
-gravass_parameters = namedtuple('gravass_parameters', 'a_i a_f e_i e_f v_inf_i v_inf_f v_planet_i v_planet_f r_p_dv '
-                                                      'v_p_i v_p_f t_p_i t_p_f')
+gravass_parameters = namedtuple('gravass_parameters', 'a_i_mag a_f_mag e_i_mag e_f_mag v_inf_i_vec v_inf_f_vec v_planet_i_vec v_planet_f_vec r_p_dv_mag '
+                                                      'v_p_i_vec v_p_f_vec t_p_i t_p_f e_i_vec e_f_vec aop lan inc type')
+
+# a_i_mag=a_i.to(u.km),
+#                                                          a_f_mag=a_f.to(u.km),
+#                                                          e_i_mag=e_i,
+#                                                          e_f_mag=e_f,
+#                                                          v_inf_i_vec=v_inf_i.to(u.km/u.s),
+#                                                          v_inf_f_vec=v_inf_f.to(u.km/u.s),
+#                                                          v_planet_i_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+#                                                          v_planet_f_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+#                                                          r_p_dv_mag=rp_dv*(u.km / u.s),
+#                                                          v_p_i_vec=v_p_i*(u.km / u.s),
+#                                                          v_p_f_vec=v_p_f*(u.km / u.s),
+#                                                          t_p_i=0,
+#                                                          t_p_f=0)
 
 
 factor = {

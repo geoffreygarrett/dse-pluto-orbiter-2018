@@ -5,6 +5,7 @@
 # GENERAL & PROJECT-MADE
 import datetime
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 from trajectory_tool.helper import *
 from copy import deepcopy
@@ -73,6 +74,22 @@ class TrajectoryTool(object):
     def _body_string_lower(body_object):
         return body_object.__str__().split(' ')[0].lower()
 
+    @staticmethod
+    def rotation_matrix(axis, theta):
+        """
+        Return the rotation matrix associated with counterclockwise rotation about
+        the given axis by theta radians.
+        """
+        axis = np.asarray(axis)
+        axis = axis / math.sqrt(np.dot(axis, axis))
+        a = math.cos(theta / 2.0)
+        b, c, d = -axis * math.sin(theta / 2.0)
+        aa, bb, cc, dd = a * a, b * b, c * c, d * d
+        bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+        return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                         [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                         [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
     # 3D GEOMETRY METHODS ##############################################################################################
     @staticmethod
     def rotation_z(theta):
@@ -86,27 +103,14 @@ class TrajectoryTool(object):
         return vector / np.linalg.norm(vector)
 
     def angle_between(self, v1, v2):
-        """ Returns the angle in radians between vectors 'v1' and 'v2'::
-
-                # >>> self.angle_between((1, 0, 0), (0, 1, 0))
-                # 1.5707963267948966
-                # >>> self.angle_between((1, 0, 0), (1, 0, 0))
-                # 0.0
-                # >>> self.angle_between((1, 0, 0), (-1, 0, 0))
-                # 3.141592653589793
-        """
+        """ Returns the angle in radians between vectors 'v1' and 'v2' """
         v1_u = self.unit_vector(v1)
         v2_u = self.unit_vector(v2)
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
     def angle_between_cc(self, v1, v2):
-        """ Returns the angle dependent on defined direction from v1 to v2.
-        :param v1:
-        :param v2:
-        :return:
-        """
+        """ Returns the angle clockwise in z from v1 to v2."""
         a_i = self.angle_between(v1, v2)
-
         # rotation check
         v2_n = np.matmul(self.rotation_z(0.01), deepcopy(v2))
         a_new = self.angle_between(v1, v2_n)
@@ -163,7 +167,7 @@ class TrajectoryTool(object):
 
     @staticmethod
     def hyp_a(v_inf, mu):
-        return - mu / (np.square(np.linalg.norm(v_inf.to(u.km/u.s)))*(u.km/u.s)**2)
+        return (- mu / (np.square(np.linalg.norm(v_inf.to(u.km/u.s)))*(u.km/u.s)**2)).to(u.km)
 
     # PRELIMINARY STATIONARY ANALYSIS
     def stationary_process_itinerary(self, _raw_itinerary, _body_list, mode='fast', verbose=False):
@@ -201,18 +205,22 @@ class TrajectoryTool(object):
                                       'v': {}}
 
         # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-        if verbose:
-            print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
+        if verbose:                                                                                                  # $
+            print('Solving Lambert multi-leg problem...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))       # $
         # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-        # MULTIPLE-LEG LAMBERT SOLUTION --------------------------------------------------------------------------------
+        ################################################################################################################
+        # MULTIPLE-LEG LAMBERT SOLUTION -------------------------------------------------------------------------------#
+        ################################################################################################################
         for i in range(len(_raw_itinerary['durations'])):
             _itinerary_data[i + 1]['l'] = self.lambert_solve_from_bodies(_itinerary_data[i]['b'],
                                                                          _itinerary_data[i + 1]['b'],
                                                                          _itinerary_data[i]['d'],
                                                                          _itinerary_data[i + 1]['d'])
 
-        # GRAVITY ASSIST FEASIBILITY -----------------------------------------------------------------------------------
+        ################################################################################################################
+        # GRAVITY ASSIST FEASIBILITY ----------------------------------------------------------------------------------#
+        ################################################################################################################
         for i in range(len(_raw_itinerary['durations'])-1):
                 _itinerary_data[i + 1]['v']['a'] = _itinerary_data[i + 1]['l'].v1.to(u.km / u.s)
                 _itinerary_data[i + 1]['v']['p'] = _itinerary_data[i + 1]['l'].ss1.state.v.to(u.km / u.s)
@@ -224,7 +232,8 @@ class TrajectoryTool(object):
                 alpha_required = self.angle_between(v_inf_i, v_inf_f)
                 alpha_max = self._alpha(v_inf_i=v_inf_i,
                                         v_inf_f=v_inf_f,
-                                        r_p=body_d_domain[self._body_string_lower(_itinerary_data[i+1]['b'])]['lower']*(u.km),
+                                        r_p=body_d_domain[
+                                                self._body_string_lower(_itinerary_data[i+1]['b'])]['lower']*(u.km),
                                         mu_body=_itinerary_data[i+1]['b'].k)
 
                 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -235,11 +244,11 @@ class TrajectoryTool(object):
                                      "requirement of alpha: {} <= alpha_max: {}".format(alpha_required, alpha_max))
                 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-                if mode is 'full':
+                if (mode is 'scalar_evaluation') or (mode is 'vector_evaluation'):
                     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-                    if verbose:
-                        print('Calculating gravity assist parameters...'.ljust(40) + ' ID: {}\n'.format(
-                            _raw_itinerary['id']))
+                    if verbose:                                                                                      # $
+                        print('Calculating gravity assist parameters...'.ljust(40) + ' ID: {}\n'.format(             # $
+                            _raw_itinerary['id']))                                                                   # $
                     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
                     e_i_0 = 1.1
 
@@ -267,21 +276,97 @@ class TrajectoryTool(object):
 
                     _itinerary_data[i + 1]['dv'] = rp_dv
 
-                    _gravass_params = gravass_parameters(a_i=a_i.to(u.km),
-                                                         a_f=a_f.to(u.km),
-                                                         e_i=e_i,
-                                                         e_f=e_f,
-                                                         v_inf_i=v_inf_i.to(u.km/u.s),
-                                                         v_inf_f=v_inf_f.to(u.km/u.s),
-                                                         v_planet_i=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
-                                                         v_planet_f=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
-                                                         r_p_dv=rp_dv*(u.km / u.s),
-                                                         v_p_i=v_p_i*(u.km / u.s),
-                                                         v_p_f=v_p_f*(u.km / u.s),
-                                                         t_p_i=0,
-                                                         t_p_f=0)
+                    if mode is 'scalar_evaluation':
+                        _gravass_params = gravass_parameters(type='scalar',
+                                                             a_i_mag=a_i.to(u.km),
+                                                             a_f_mag=a_f.to(u.km),
+                                                             e_i_mag=e_i,
+                                                             e_i_vec=None,
+                                                             e_f_vec=None,
+                                                             e_f_mag=e_f,
+                                                             v_inf_i_vec=v_inf_i.to(u.km/u.s),
+                                                             v_inf_f_vec=v_inf_f.to(u.km/u.s),
+                                                             v_planet_i_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+                                                             v_planet_f_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+                                                             r_p_dv_mag=rp_dv*(u.km / u.s),
+                                                             v_p_i_vec=v_p_i*(u.km / u.s),
+                                                             v_p_f_vec=v_p_f*(u.km / u.s),
+                                                             t_p_i=0,
+                                                             t_p_f=0,
+                                                             aop=None,
+                                                             laan=None,
+                                                             inc=None)
 
-        if (mode is 'full') or mode is 'plot2D' or mode is 'plot3D':
+                        _itinerary_data[i + 1]['ga'] = _gravass_params
+
+                    if mode is 'vector_evaluation':
+                        # Orbital plane.
+                        n_vec_orbital = self.unit_vector(np.cross(v_inf_i, v_inf_f))
+
+                        # Rotation about orbital plane normal vector for v_p_unit_vec with angle of d_i.
+                        d_i                = 2 * np.arcsin(1/e_i)
+                        v_p_unit_vec       = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                                          theta=d_i), v_inf_i))
+
+                        # v_p_i_vec and v_p_f_vec
+                        v_p_i_vec          = v_p_i * v_p_unit_vec
+                        v_p_f_vec          = v_p_f * v_p_unit_vec
+
+                        # r_p_unit_vec and r_p_vec
+                        r_p_unit_vec       = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                                          theta=-np.pi/2), v_p_i_vec).value)
+                        r_p_vec            = r_p * r_p_unit_vec
+
+                        # eccentricity vectors
+                        e_i_vec                = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
+                                             _itinerary_data[i+1]['b'].k.to(u.km**3/u.s**2).value - r_p_unit_vec
+                        e_f_vec                = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_f_vec)) / \
+                                             _itinerary_data[i+1]['b'].k.to(u.km**3/u.s**2).value - r_p_unit_vec
+
+                        # Classical orbit parameters
+                        inclination = np.arccos(np.dot(np.array([0, 0, 1]), n_vec_orbital)/(np.linalg.norm(n_vec_orbital)))
+
+                        n_vec = np.cross(np.array([0, 0, 1]), np.cross(r_p_vec, v_p_i_vec))
+
+                        lan = np.arccos(np.dot(np.array([1, 0, 0]), n_vec)/(np.linalg.norm(n_vec)*1))
+
+                        if n_vec[1] < 0:
+                            lan = 2 * np.pi - lan
+
+                        aop  = np.arccos(np.dot(n_vec, e_i_vec)/np.linalg.norm(n_vec)/np.linalg.norm(e_i_vec))
+
+                        if e_i_vec[-1] < 0:
+                            aop = 2 * np.pi - aop
+
+                        _gravass_params = gravass_parameters(type='vector',
+                                                             a_i_mag=a_i.to(u.km),
+                                                             a_f_mag=a_f.to(u.km),
+                                                             e_i_mag=e_i,
+                                                             e_i_vec=e_i_vec,
+                                                             e_f_mag=e_f,
+                                                             e_f_vec=e_f_vec,
+                                                             v_inf_i_vec=v_inf_i.to(u.km/u.s),
+                                                             v_inf_f_vec=v_inf_f.to(u.km/u.s),
+                                                             v_planet_i_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+                                                             v_planet_f_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
+                                                             r_p_dv_mag=rp_dv*(u.km / u.s),
+                                                             v_p_i_vec=v_p_i*(u.km / u.s),
+                                                             v_p_f_vec=v_p_f*(u.km / u.s),
+                                                             t_p_i=0,
+                                                             t_p_f=0,
+                                                             aop=aop,
+                                                             lan=lan,
+                                                             inc=inclination)
+                        _itinerary_data[i + 1]['ga'] = _gravass_params
+
+                    # op = OrbitPlotter()
+                    #
+                    # # @u.quantity_input(a=u.m, ecc=u.one, inc=u.rad, raan=u.rad, argp=u.rad, nu=u.rad)
+                    # # def from_classical(cls, attractor, a, ecc, inc, raan, argp, nu, epoch=J2000):
+                    # op.plot(Orbit.from_classical(Jupiter, a_f, e_f, inc=inclination*u.rad, raan=lan*u.rad, argp=aop*u.rad, nu=0*u.rad))
+                    # plt.show()
+
+        if (mode is 'scalar_evaluation') or (mode is 'vector_evaluation') or (mode is 'plot2D') or (mode is 'plot3D'):
             # DEPARTURE BODY DATA --------------------------------------------------------------------------------------
             _itinerary_data[0]['v']['p'] = _itinerary_data[1]['l'].ss0.state.v.to(u.km / u.s)
             _itinerary_data[0]['v']['d'] = _itinerary_data[1]['l'].v0.to(u.km / u.s)
@@ -312,6 +397,9 @@ class TrajectoryTool(object):
             _itinerary_data[idx_arrival]['dv'] = \
                 np.linalg.norm( _v_0 - _v_orbit)
 
+        ################################################################################################################
+        # PLOTTING                                                                                                     #
+        ################################################################################################################
         if (mode is 'plot2D') or (mode is 'plot3D'):
 
             # TRAJECTORIES OF LEGS -------------------------------------------------------------------------------------
@@ -319,7 +407,6 @@ class TrajectoryTool(object):
                 _itinerary_data[i + 1]['t'] = Orbit.from_vectors(_itinerary_data[i + 1]['l'].attractor,
                                                                  _itinerary_data[i + 1]['l'].r0,
                                                                  _itinerary_data[i + 1]['l'].v0)
-
 
             print('Plotting...'.ljust(40) + ' ID: {}\n'.format(_raw_itinerary['id']))
             # EXTRA PROCESS FOR PLOTTING -------------------------------------------------------------------------------
@@ -391,281 +478,6 @@ class TrajectoryTool(object):
         # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
         return _itinerary_data
-
-    def refined_gravity_assist(self, v_s_i_initial, v_s_f_initial, v_planet_initial, body_assisting, body_next,
-                               epoch_assist, epoch_next_body, epoch_previous_body=None, previous_body=None, mode='fast',
-                               verification=False):
-
-        _return = []
-        v_s_f = v_s_f_initial
-        v_s_i = v_s_i_initial
-        delta_t_assist = 0
-        v_planet_entry = v_planet_initial
-        v_planet_exit = v_planet_initial
-        delta_delta_t = 200
-        iterations = 0
-
-        # Parse body name in lower string form for trajectory plotter.
-        body_assist_str = body_assisting.__str__().split(' ')[0].lower()
-        body_next_str = body_next.__str__().split(' ')[0].lower()
-
-        # Sphere of influence for body.
-        r_soi = body_d_domain[body_assist_str]['upper'] * (u.km)
-        r_atm = body_d_domain[body_assist_str]['lower'] * (u.km)
-
-        # Lambert iteration TO body.
-        if mode is 'full':
-            assert (previous_body and epoch_previous_body), "Previous Lambert iteration requires these arguments."
-            initial_epoch_entry = epoch_assist
-
-        while delta_delta_t >= 100:
-
-            # Calculate the s/c relative velocity to planet.
-            v_s_p_i = (v_s_i - v_planet_entry).to(u.km / u.s)
-            v_s_p_f = (v_s_f - v_planet_exit).to(u.km / u.s)
-
-            # Calculate incoming and outgoing angles relative to planet velocity vector.
-            theta_i = self.angle_between_cc(v_planet_entry, v_s_p_i)
-            theta_f = self.angle_between_cc(v_planet_exit, v_s_p_f)
-
-            # The change from incoming to outgoing.
-            delta = theta_f - theta_i
-
-            # Classical orbital parameters for hyperbolic trajectory.
-            e = abs(1 / np.sin(delta / 2))
-            a = -body_assisting.k.to(u.km ** 3 / u.s ** 2) / (np.linalg.norm(deepcopy(v_s_p_i)))**2 / \
-                (u.km ** 2 / u.s ** 2)
-            b = np.sqrt(np.square(a) * (e ** 2 - 1))
-            r_p = -a * (e - 1)
-
-            # Transform velocity back to heliocentric reference frame.
-            v_out = np.linalg.norm(v_s_p_i) * self.unit_vector(v_s_p_f) + v_planet_exit
-
-            # Definition of plane of gravity assist
-            n = np.cross(v_s_p_i, v_s_p_f)
-            b_unit_v_enter = self.unit_vector(np.cross(v_s_p_i, n))
-
-            # Check which direction the b_vector should go in.
-            if (self.angle_between_cc(b_unit_v_enter, v_s_p_f) > np.pi / 2 and self.angle_between_cc(v_s_p_f,
-                                                                                        b_unit_v_enter) > np.pi / 2):
-                b_vec_enter = b_unit_v_enter * b.value * (u.km)
-            else:
-                b_vec_enter = -b_unit_v_enter * b.value * (u.km)
-
-            # Calculating the position on the SOI for entrance.
-            x_mag_ent = np.sqrt(r_soi.value ** 2 - b.value ** 2)
-            x_vec_ent = self.unit_vector(np.negative(v_s_p_i)) * x_mag_ent
-            r_ent = x_vec_ent.value + b_vec_enter.value
-
-            b_unit_v_exit = self.unit_vector(np.cross(v_s_p_f, n))
-
-            # Check which direction the b_vector should go in.
-            if (self.angle_between_cc(b_unit_v_exit, np.negative(v_s_p_i)) > np.pi / 2 and self.angle_between_cc(np.negative(v_s_p_i),
-                                                                                        b_unit_v_exit) > np.pi / 2):
-                b_vec_exit = b_unit_v_exit * b.value * (u.km)
-            else:
-                b_vec_exit = -b_unit_v_exit * b.value * (u.km)
-
-            # Calculating the position on the SOI for exit
-            x_mag_exit = np.sqrt(r_soi.value ** 2 - b.value ** 2)
-            x_vec_exit = self.unit_vector(v_s_p_f) * x_mag_exit
-            r_ext = x_vec_exit.value + b_vec_exit.value
-
-            # Velocity at perigee
-            v_p = np.sqrt(body_assisting.k / r_p) * (1 / e)
-
-            # Calculating the hyperbolic anomaly
-            def H(theta):
-                return np.arccosh(abs((e + np.cos(theta)) / (1 + e * np.cos(theta))))
-
-            # Calculating the time since passage of perigee
-            def t_p(H):
-                return np.sqrt((-a) ** 3 / (body_assisting.k)) * (e * np.sinh(H) - H)
-
-            # Calculating the angle of the exit.
-            theta_rsoi_exit = (2 * np.pi - self.angle_between(r_ent, r_ext)) / 2
-
-            # Time taken for entire manoeuvre.
-            delta_t_previous = delta_t_assist
-
-            half_delta_t_assist = t_p(H(theta_rsoi_exit)).to(u.s)
-            delta_t_assist = 2 * half_delta_t_assist
-
-            delta_delta_t = abs(delta_t_assist - delta_t_previous).to(u.s).value
-
-            # Epoch during exit
-            epoch_exit = epoch_assist + time.TimeDelta(half_delta_t_assist)
-
-
-            # Epoch during entry
-            epoch_entry = epoch_assist - time.TimeDelta(half_delta_t_assist)
-
-            ss_assist = Orbit.from_body_ephem(body_assisting, epoch_entry)
-            try:
-                # New Lambert solution for Previous Leg
-                (v_launch, v_s_i_new), = iod.lambert(Sun.k, Orbit.from_body_ephem(previous_body, epoch_previous_body).r,
-                                                     ss_assist.r + r_ent * (u.km), epoch_entry-epoch_previous_body)
-                v_planet_entry = ss_assist.state.v
-                v_s_i = v_s_i_new
-
-            except AssertionError:
-                raise ValueError("The gravity assist is not possible...\n"
-                                 "Divergent time iteration.")
-
-            try:
-                 ss_assist_exit = Orbit.from_body_ephem(body_assisting, epoch_exit)
-                 (v_s_f_new, v0_arrival), = iod.lambert(Sun.k, ss_assist_exit.r + r_ext*(u.km),
-                                                               Orbit.from_body_ephem(body_next, epoch_next_body).r,
-                                                               epoch_next_body-epoch_exit)
-                 v_planet_exit = Orbit.from_body_ephem(body_assisting, epoch_exit).state.v
-                 v_s_f = v_s_f_new
-
-            except AssertionError:
-                raise ValueError("The gravity assist is not possible...\n"
-                                 "Divergent time iteration.")
-
-            if iterations >= 200:
-                raise ValueError("The gravity assist is not possible...\n"
-                                 "Divergent time iteration.")
-
-            iterations += 1
-
-        # Check to see if closest approach is below set body limit.
-        if (r_p > r_atm) and (r_p <= 0.7*r_soi):
-            dv_extra_in = np.linalg.norm(v_s_i - v_s_i_initial)
-            dv_extra_out = np.linalg.norm(v_s_f - v_out)
-            _return += [dv_extra_out, dv_extra_in]
-
-        else:
-            raise ValueError("The gravity assist is not possible...\n"
-                             "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
-        return _return
-
-    def optimise_gravity_assist(self, v_s_i, v_s_f, v_p, body, epoch, mode='fast', verification=False):
-        _return = []
-        possible_modes = set(['fast', 'plot2D', 'plot3D', 'verification'])
-
-        if set([mode]) < possible_modes:
-            pass
-        else:
-            raise ValueError("Mode not recognised for gravity assist.")
-
-        # Parse body name in lower string form for trajectory plotter.
-        body_str = body.__str__().split(' ')[0].lower()
-
-        # Sphere of influence for body.
-        r_soi = body_d_domain[body_str]['upper'] * (u.km)
-        r_atm = body_d_domain[body_str]['lower'] * (u.km)
-
-        # Calculate the s/c relative velocity to planet.
-        v_s_p_i = (v_s_i - v_p).to(u.km / u.s)
-        v_s_p_f = (v_s_f - v_p).to(u.km / u.s)
-
-        # Calculate incoming and outgoing angles relative to planet velocity vector.
-        theta_i = self.angle_between_cc(v_p, v_s_p_i)
-        theta_f = self.angle_between_cc(v_p, v_s_p_f)
-
-        # The change from incoming to outgoing.
-        delta = theta_f - theta_i
-
-        # Classical orbital parameters for hyperbolic trajectory.
-        e = abs(1 / np.sin(delta / 2))
-        a = -body.k.to(u.km ** 3 / u.s ** 2) / (np.dot(deepcopy(v_s_p_i), deepcopy(v_s_p_i))) / (u.km ** 2 / u.s ** 2)
-
-        # Other parameters, possibly not required at all.
-        b = np.sqrt(np.square(a)*(e**2 - 1))
-        # d = b/np.sin(theta_i)
-
-        # Closest approach distance.
-        r_p = -a * (e - 1)
-
-        # Transform velocity back to heliocentric reference frame.
-        v_out = np.linalg.norm(v_s_p_i) * self.unit_vector(v_s_p_f) + v_p
-
-        # Check to see if closest approach is below set body limit.
-        if r_p > r_atm:
-            dv_extra = np.linalg.norm(v_s_f - v_out)
-            _return.append(dv_extra)
-
-        else:
-            raise ValueError("The gravity assist is not possible...\n"
-                             "r_p: {:0.2f} < r_min: {:0.2f}".format(r_p, r_atm))
-            # dv_extra = None
-
-        # Definition of plane of gravity assist
-        n = np.cross(v_s_p_i, v_s_p_f)
-
-        b_unit_v1 = self.unit_vector(np.cross(v_s_p_f, n))
-
-        # Check which direction the b_vector should go in.
-        if (self.angle_between_cc(b_unit_v1, v_s_p_f) > np.pi/2 and self.angle_between_cc(v_s_p_f, b_unit_v1) > np.pi/2):
-            b_vec1 = b_unit_v1 * b.value * (u.km)
-        else:
-            b_vec1 = -b_unit_v1 * b.value * (u.km)
-
-        x_mag1 = np.sqrt(r_soi.value**2 - b.value**2)
-        x_vec1 = self.unit_vector(np.negative(v_s_p_f)) *  x_mag1
-        r_ext = x_vec1.value+b_vec1.value
-
-        b_unit_v = self.unit_vector(np.cross(v_s_p_i, n))
-
-        # Check which direction the b_vector should go in.
-        if (self.angle_between_cc(b_unit_v, v_s_p_f) > np.pi/2 and self.angle_between_cc(v_s_p_f, b_unit_v) > np.pi/2):
-            b_vec = b_unit_v * b.value * (u.km)
-        else:
-            b_vec = -b_unit_v * b.value * (u.km)
-
-        x_mag = np.sqrt(r_soi.value**2 - b.value**2)
-        x_vec = self.unit_vector(np.negative(v_s_p_i)) *  x_mag
-        r_ent = x_vec.value+b_vec.value
-
-        v_per = np.sqrt(body.k/r_p)*(1/e)
-        # t_p = np.sqrt((-a)**3/(body.k))*(e*np.sinh(H_inf)-H_inf)
-
-        def H(theta):
-            return np.arccosh(abs((e + np.cos(theta)) / (1 + e * np.cos(theta))))
-
-        def t_p(H):
-            return np.sqrt((-a) ** 3 / (body.k)) * (e * np.sinh(H) - H)
-
-        theta_rsoi_exit = (2*np.pi - self.angle_between(r_ent, r_ext))/2
-        delta_t_assist = 2*t_p(H(theta_rsoi_exit)).to(u.s)
-
-        if verification:
-            _return = _return + [r_ent] + [r_p] + [e] + [a]
-            print('r_entry = ', r_ent)
-            print('v_entry = ', v_s_p_i)
-            print('r_exit  =', r_ext)
-            print('v_exit  =', v_s_p_f)
-            print('r_p =', r_p)
-
-        if set([mode]) < set(['plot2D', 'plot3D']):
-
-            if mode is 'plot2D':
-                ss = OrbitPlotter()
-            elif mode is 'plot3D':
-                ss = OrbitPlotter3D()
-
-            ss_soi = Orbit.circular(body, alt=r_soi, epoch=epoch)
-            ss.plot(ss_soi, label=str(body) + ' SOI', color='red')
-            ss_hyp2 = Orbit.from_classical(body, a, e * (u.km / u.km), inc=0 * u.rad, raan=0 * u.rad, argp=0 * u.rad,
-                                          nu=-0.5 * u.rad, epoch=epoch)
-
-            ss_hyp = Orbit.from_vectors(body, r=r_ent*(u.km), v=v_s_p_i, epoch=epoch)
-            tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
-            ss.plot(ss_hyp2, label='test', color='0.8')
-            ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
-
-            if mode is 'plot2D':
-                plt.show()
-            elif mode is 'plot3D':
-                ss.set_view(30 * u.deg, 260 * u.deg, distance=3 * u.km)
-                ss.show(title="EJP Example")
-                ss.savefig("EJPExample.png", title="MSL Mission: from Earth to Mars")
-
-
-
-        return _return
 
     def process_itinerary(self, _raw_itinerary, _body_list, _mode='fast', _grav_ass=False, verbose=False):
         """
