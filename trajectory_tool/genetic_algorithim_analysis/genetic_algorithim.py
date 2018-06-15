@@ -429,7 +429,7 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 0
+    TO_DO = 2
 
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
@@ -437,7 +437,7 @@ if __name__ == '__main__':
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '1847 50549 00000 8197'
+    INSPECT = '1057 50756 00000 7998'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -451,7 +451,8 @@ if __name__ == '__main__':
 
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
-        results = tt.stationary_process_itinerary(raw, bodyl, mode='full')
+        results = tt.stationary_process_itinerary(raw, bodyl, mode='scalar_evaluation')
+        print('penis: ',results[-1]['v']['p'])
         print([results[k]['dv'] for k in range(len(results))])
 
     if to_do[TO_DO] is 'evolve':

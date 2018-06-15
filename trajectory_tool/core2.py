@@ -8,8 +8,13 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from trajectory_tool.helper import *
-from copy import deepcopy
+from trajectory_tool.plotting import *
+from copy import deepcopy, copy
 from scipy import optimize
+
+#TEMP
+import plotly
+import plotly.graph_objs as go
 
 # ASTROPHYSICS & ORBITAL MECHANICS
 import astropy.units as u
@@ -20,6 +25,7 @@ from poliastro.bodies import Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, 
 from poliastro.plotting import OrbitPlotter, OrbitPlotter3D
 from poliastro.twobody import Orbit
 from poliastro.util import time_range
+from poliastro.maneuver import Maneuver
 
 ########################################################################################################################
 # CONFIGURATION                                                                                                        #
@@ -120,6 +126,28 @@ class TrajectoryTool(object):
             angle = 2 * np.pi - a_i  # Adjust for clockwise measurement
         return angle
 
+    # 3D ORBIT METHODS #################################################################################################
+    @staticmethod
+    def coplanar_2_j2000(aop, lan, inc):
+        taop = np.array([[  np.cos(aop), np.sin(aop), 0],
+                        [- np.sin(aop), np.cos(aop), 0],
+                        [            0,           0, 1]])
+
+        tinc = np.array([[1,             0,            0],
+                        [0,   np.cos(inc), np.sin(inc)],
+                        [0, - np.sin(inc), np.cos(inc)]])
+
+        tlan = np.array([[  np.cos(lan), np.sin(lan), 0],
+                        [- np.sin(lan), np.cos(lan), 0],
+                        [            0,           0, 1]])
+        return np.matmul(taop, np.matmul(tinc, tlan))
+
+    @staticmethod
+    def polytime_2_datetime(_time):
+        temp = copy(_time)
+        temp.format = 'datetime'
+        return temp.value
+
     # LAMBERT SOLUTION METHOD ##########################################################################################
     @staticmethod
     def lambert_solve_from_bodies(body1, body2, epoch1, epoch2, main_attractor=Sun):
@@ -169,22 +197,12 @@ class TrajectoryTool(object):
     def hyp_a(v_inf, mu):
         return (- mu / (np.square(np.linalg.norm(v_inf.to(u.km/u.s)))*(u.km/u.s)**2)).to(u.km)
 
-    def powered_gravity_assist(self, _itinerary_data_indexed, mode='scalar'):
-        """
-
-        :param mode:  'scalar' or 'vector'
-        :return: gravass_parameters
-        """
-        # Newton Rhapson convergence.
+    def newton_rhapson_pga(self, v_inf_i, v_inf_f, mu_body, alpha_required):
         e_i_0 = 1.1
+        a_i = self.hyp_a(v_inf_i, mu_body)
+        a_f = self.hyp_a(v_inf_f, mu_body)
 
-        v_inf_i = _itinerary_data_indexed['v']['a']
-        v_inf_f = _itinerary_data_indexed['v']['d']
-
-        a_i = self.hyp_a(v_inf_i, _itinerary_data_indexed['b'].k)
-        a_f = self.hyp_a(v_inf_f, _itinerary_data_indexed['b'].k)
-
-        alpha_required = self.angle_between(v_inf_i, v_inf_f)
+        alpha_required = alpha_required
 
         def func(_e_i):
             return self._f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value,
@@ -193,22 +211,23 @@ class TrajectoryTool(object):
         def _fprime(_e_i):
             return self._d_f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value)
 
-        # Entry hyperbolic orbit scalar eccentricity.
         e_i = optimize.newton(func, e_i_0, _fprime)
-
-        # Entry AND exit hyperbolic orbit scalar periapsis.
         r_p = a_i * (1 - e_i)
-
-        # Exit hyperbolic orbit scalar eccentricity.
         e_f = - (r_p / a_f - 1)
-
         v_p_i = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_i + 1) / (e_i - 1))
-
         v_p_f = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_f + 1) / (e_f - 1))
+        dv = np.linalg.norm(v_p_f - v_p_i)
+        return e_i, e_f, a_i, a_f, v_p_i, v_p_f, dv, r_p
 
-        rp_dv = np.linalg.norm(v_p_f - v_p_i)
+    def powered_gravity_assist(self, _itinerary_data_indexed, mode='scalar'):
+        rsoi    = body_d_domain[self._body_string_lower(_itinerary_data_indexed['b'])]['upper']
+        mu_body = _itinerary_data_indexed['b'].k
+        v_inf_i = _itinerary_data_indexed['v']['a']
+        v_inf_f = _itinerary_data_indexed['v']['d']
+        alpha_required = self.angle_between(v_inf_i, v_inf_f)
+        e_i, e_f, a_i, a_f, v_p_i, v_p_f, rp_dv, r_p = self.newton_rhapson_pga(v_inf_i, v_inf_f, mu_body, alpha_required)
 
-        _itinerary_data_indexed['dv'] = rp_dv
+        # _itinerary_data_indexed['dv'] = rp_dv  TODO: Implement properly
 
         if mode is 'scalar_evaluation':
             _gravass_params = gravass_parameters(type='scalar',
@@ -228,16 +247,10 @@ class TrajectoryTool(object):
                                                  t_p_i=0,
                                                  t_p_f=0,
                                                  aop=None,
-                                                 laan=None,
+                                                 lan=None,
                                                  inc=None)
 
-            #
-            _itinerary_data_indexed['ga'] = _gravass_params
-
-        if mode is 'vector_evaluation' or mode is 'iterative':
-            I = np.array([1, 0, 0])
-            J = np.array([0, 1, 0])
-            K = np.array([1, 0, 1])
+        elif mode is 'vector_evaluation':
 
             # Orbital plane.
             n_vec_orbital = self.unit_vector(np.cross(v_inf_i, v_inf_f))
@@ -259,7 +272,7 @@ class TrajectoryTool(object):
             # eccentricity vectors
             e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
                       _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
-            e_f_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_f_vec)) / \
+            e_f_vec = np.cross(v_p_f_vec, np.cross(r_p_vec, v_p_f_vec)) / \
                       _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
             # Classical orbit parameters
@@ -277,58 +290,83 @@ class TrajectoryTool(object):
             if e_i_vec[-1] < 0:
                 aop = 2 * np.pi - aop
 
-            if mode is 'vector_evaluation':
-                _gravass_params = gravass_parameters(type='vector',
-                                                     a_i_mag=a_i.to(u.km),
-                                                     a_f_mag=a_f.to(u.km),
-                                                     e_i_mag=e_i,
-                                                     e_i_vec=e_i_vec,
-                                                     e_f_mag=e_f,
-                                                     e_f_vec=e_f_vec,
-                                                     v_inf_i_vec=v_inf_i.to(u.km / u.s),
-                                                     v_inf_f_vec=v_inf_f.to(u.km / u.s),
-                                                     v_planet_i_vec=_itinerary_data_indexed['v']['p'].to(
-                                                         u.km / u.s),
-                                                     v_planet_f_vec=_itinerary_data_indexed['v']['p'].to(
-                                                         u.km / u.s),
-                                                     r_p_dv_mag=rp_dv * (u.km / u.s),
-                                                     v_p_i_vec=v_p_i * (u.km / u.s),
-                                                     v_p_f_vec=v_p_f * (u.km / u.s),
-                                                     t_p_i=0,
-                                                     t_p_f=0,
-                                                     aop=aop,
-                                                     lan=lan,
-                                                     inc=inclination)
-                _itinerary_data_indexed['ga'] = _gravass_params
+            theta_inf_i = np.arccos(-1 / e_i)
+            theta_inf_f = np.arccos(-1 / e_f).value
 
-            if mode is 'iterative':
+            if n_vec_orbital[-1]<0:
+                theta_inf_i = -theta_inf_i
+                theta_inf_f = -theta_inf_f
 
-                # while test <= tolerance:
+            H_rsoi_i = np.arcsinh(rsoi
+                                  * np.sin(theta_inf_i)/(a_i.value * np.sqrt(e_i**2 - 1)))
+            H_rsoi_f = np.arcsinh(rsoi
+                                  * np.sin(theta_inf_f) / (a_f.value * np.sqrt(e_f.value ** 2 - 1))) * -1
 
+            mu = _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value
 
-                    theta_inf_i = np.arccos(-1/e_i)
-                    theta_inf_f = np.arccos(-1/e_f).value
+            t_rsoi_i = np.sqrt((-a_i)**3/mu).value * (e_i * np.sinh(H_rsoi_i)-H_rsoi_i)
+            t_rsoi_f = np.sqrt((-a_f)**3/mu).value * (e_f * np.sinh(H_rsoi_f)-H_rsoi_f)
 
-                    H_rsoi_i = np.arcsinh(body_d_domain[self._body_string_lower(_itinerary_data_indexed['b'])]['upper']
-                                          * np.sin(theta_inf_i)/(a_i.value * np.sqrt(e_i**2 - 1)))
+            epoch_rp = _itinerary_data_indexed['d']
+            epoch_entry = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_i * u.s)
+            epoch_exit = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_f * u.s)
 
-                    H_rsoi_f = np.arcsinh(body_d_domain[self._body_string_lower(_itinerary_data_indexed['b'])]['upper']
-                                          * np.sin(theta_inf_f) / (a_f.value * np.sqrt(e_f.value ** 2 - 1))) * -1
+            _itinerary_data_indexed['d'] = {'rp': epoch_rp}
+            _itinerary_data_indexed['d']['i'] = epoch_entry
+            _itinerary_data_indexed['d']['f'] = epoch_exit
 
-                    mu = _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value
+            op = OrbitPlotter3D()
+            op.set_attractor(Jupiter)
+            ss_i = Orbit.from_classical(attractor=Jupiter, a=a_i, ecc=e_i * u.one, inc=inclination * u.rad,
+                                          raan=lan * u.rad, argp=aop * u.rad, nu=0*u.rad, epoch=epoch_rp)
 
-                    t_rsoi_i = np.sqrt((-a_i)**3/mu).value * (e_i * np.sinh(H_rsoi_i)-H_rsoi_i)
-                    t_rsoi_f = np.sqrt((-a_f)**3/mu).value * (e_f * np.sinh(H_rsoi_f)-H_rsoi_f)
+            ss_f = Orbit.from_classical(attractor=Jupiter, a=a_f, ecc=e_f*u.one, inc=inclination*u.rad,
+                                          raan=lan*u.rad, argp=aop*u.rad, nu=0*u.rad, epoch=epoch_rp)
 
-                    epoch_entry = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_i * u.s)
-                    epoch_exit = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_f * u.s)
+            epoch_entry_dt = self.polytime_2_datetime(_itinerary_data_indexed['d']['i'])
+            epoch_exit_dt = self.polytime_2_datetime(_itinerary_data_indexed['d']['f'])
+            epoch_rp_dt = self.polytime_2_datetime(_itinerary_data_indexed['d']['rp'])
 
-                    print(epoch_entry)
-                    print(epoch_exit)
+            tv_ent = time_range(epoch_entry_dt, periods=100, spacing=None, end=epoch_rp_dt)
+            tv_ext = time_range(epoch_rp_dt, periods=100, spacing=None, end=epoch_exit_dt)
 
-                    print(t_rsoi_i)
-                    print(t_rsoi_f)
+            op.plot_trajectory(ss_i.sample(tv_ent)[-1], label='Entry')
+            op.plot_trajectory(ss_f.sample(tv_ext)[-1], label='Exit')
 
+            op._data.append(create_soi(rsoi))
+            op.plot(ss_i)
+            op.plot(ss_f)
+
+            plt.xlim(-0.5*rsoi, 0.5*rsoi)
+            plt.ylim(-0.5*rsoi, 0.5*rsoi)
+
+            op.set_view(30 * u.deg, 260 * u.deg, distance=3 * u.km)
+            op.savefig("EJPExample.png", title="EJP Optimal trajectory sequence")
+
+            _gravass_params = gravass_parameters(type='vector',
+                                                 a_i_mag=a_i.to(u.km),
+                                                 a_f_mag=a_f.to(u.km),
+                                                 e_i_mag=e_i,
+                                                 e_i_vec=e_i_vec,
+                                                 e_f_mag=e_f,
+                                                 e_f_vec=e_f_vec,
+                                                 v_inf_i_vec=v_inf_i.to(u.km / u.s),
+                                                 v_inf_f_vec=v_inf_f.to(u.km / u.s),
+                                                 v_planet_i_vec=Orbit.from_body_ephem(
+                                                     _itinerary_data_indexed['b'].state.v, epoch_entry),
+                                                 v_planet_f_vec=Orbit.from_body_ephem(
+                                                     _itinerary_data_indexed['b'].state.v, epoch_entry),
+                                                 r_p_dv_mag=rp_dv * (u.km / u.s),
+                                                 v_p_i_vec=v_p_i * (u.km / u.s),
+                                                 v_p_f_vec=v_p_f * (u.km / u.s),
+                                                 t_p_i=t_rsoi_i,
+                                                 t_p_f=t_rsoi_f,
+                                                 aop=aop,
+                                                 lan=lan,
+                                                 inc=inclination)
+        else:
+            raise AttributeError("Mode is not recognised.")
+        return _gravass_params
 
     # PRELIMINARY STATIONARY ANALYSIS
     def stationary_process_itinerary(self, _raw_itinerary, _body_list, mode='fast', verbose=False):
@@ -412,30 +450,9 @@ class TrajectoryTool(object):
                             _raw_itinerary['id']))                                                                   # $
                     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-                    # Newton Rhapson convergence.
-                    e_i_0 = 1.1
 
-                    a_i = self.hyp_a(v_inf_i, _itinerary_data[i+1]['b'].k)
-                    a_f = self.hyp_a(v_inf_f, _itinerary_data[i+1]['b'].k)
 
-                    def func(_e_i):
-                        return self._f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value,
-                                           alpha_req=alpha_required)
-
-                    def _fprime(_e_i):
-                        return self._d_f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value)
-
-                    e_i = optimize.newton(func, e_i_0, _fprime)
-
-                    r_p = a_i * (1 - e_i)
-
-                    e_f = - (r_p/a_f - 1)
-
-                    v_p_i = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_i + 1) / (e_i - 1))
-
-                    v_p_f = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_f + 1) / (e_f - 1))
-
-                    rp_dv = np.linalg.norm(v_p_f-v_p_i)
+                    e_i, e_f, a_i, a_f, v_p_i, v_p_f, rp_dv, r_p = self.newton_rhapson_pga(v_inf_i, v_inf_f, mu_body)
 
                     _itinerary_data[i + 1]['dv'] = rp_dv
 
@@ -457,7 +474,7 @@ class TrajectoryTool(object):
                                                              t_p_i=0,
                                                              t_p_f=0,
                                                              aop=None,
-                                                             laan=None,
+                                                             lan=None,
                                                              inc=None)
 
                         #
@@ -863,11 +880,11 @@ if __name__ == '__main__':
                             'durations': [2.115, 22.852]
                             }
         # ----------------------------------------------------------------------------------------------------------
-        processed = _test.stationary_process_itinerary(__raw_itinerary2, __raw_itinerary1, mode='iterative')
+        processed = _test.stationary_process_itinerary(__raw_itinerary2, __raw_itinerary1, mode='full')
 
         # print(processed)
 
-        _test.powered_gravity_assist(processed[1], mode='iterative')
+        _test.powered_gravity_assist(processed[1], mode='vector_evaluation')
 
         # total = [24-float(i) for i in np.linspace(0, 9, 100)]
 
