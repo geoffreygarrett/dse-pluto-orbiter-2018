@@ -169,6 +169,167 @@ class TrajectoryTool(object):
     def hyp_a(v_inf, mu):
         return (- mu / (np.square(np.linalg.norm(v_inf.to(u.km/u.s)))*(u.km/u.s)**2)).to(u.km)
 
+    def powered_gravity_assist(self, _itinerary_data_indexed, mode='scalar'):
+        """
+
+        :param mode:  'scalar' or 'vector'
+        :return: gravass_parameters
+        """
+        # Newton Rhapson convergence.
+        e_i_0 = 1.1
+
+        v_inf_i = _itinerary_data_indexed['v']['a']
+        v_inf_f = _itinerary_data_indexed['v']['d']
+
+        a_i = self.hyp_a(v_inf_i, _itinerary_data_indexed['b'].k)
+        a_f = self.hyp_a(v_inf_f, _itinerary_data_indexed['b'].k)
+
+        alpha_required = self.angle_between(v_inf_i, v_inf_f)
+
+        def func(_e_i):
+            return self._f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value,
+                               alpha_req=alpha_required)
+
+        def _fprime(_e_i):
+            return self._d_f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value)
+
+        # Entry hyperbolic orbit scalar eccentricity.
+        e_i = optimize.newton(func, e_i_0, _fprime)
+
+        # Entry AND exit hyperbolic orbit scalar periapsis.
+        r_p = a_i * (1 - e_i)
+
+        # Exit hyperbolic orbit scalar eccentricity.
+        e_f = - (r_p / a_f - 1)
+
+        v_p_i = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_i + 1) / (e_i - 1))
+
+        v_p_f = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (e_f + 1) / (e_f - 1))
+
+        rp_dv = np.linalg.norm(v_p_f - v_p_i)
+
+        _itinerary_data_indexed['dv'] = rp_dv
+
+        if mode is 'scalar_evaluation':
+            _gravass_params = gravass_parameters(type='scalar',
+                                                 a_i_mag=a_i.to(u.km),
+                                                 a_f_mag=a_f.to(u.km),
+                                                 e_i_mag=e_i,
+                                                 e_i_vec=None,
+                                                 e_f_vec=None,
+                                                 e_f_mag=e_f,
+                                                 v_inf_i_vec=v_inf_i.to(u.km / u.s),
+                                                 v_inf_f_vec=v_inf_f.to(u.km / u.s),
+                                                 v_planet_i_vec=_itinerary_data_indexed['v']['p'].to(u.km / u.s),
+                                                 v_planet_f_vec=_itinerary_data_indexed['v']['p'].to(u.km / u.s),
+                                                 r_p_dv_mag=rp_dv * (u.km / u.s),
+                                                 v_p_i_vec=v_p_i * (u.km / u.s),
+                                                 v_p_f_vec=v_p_f * (u.km / u.s),
+                                                 t_p_i=0,
+                                                 t_p_f=0,
+                                                 aop=None,
+                                                 laan=None,
+                                                 inc=None)
+
+            #
+            _itinerary_data_indexed['ga'] = _gravass_params
+
+        if mode is 'vector_evaluation' or mode is 'iterative':
+            I = np.array([1, 0, 0])
+            J = np.array([0, 1, 0])
+            K = np.array([1, 0, 1])
+
+            # Orbital plane.
+            n_vec_orbital = self.unit_vector(np.cross(v_inf_i, v_inf_f))
+
+            # Rotation about orbital plane normal vector for v_p_unit_vec with angle of d_i.
+            d_i = 2 * np.arcsin(1 / e_i)
+            v_p_unit_vec = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                        theta=d_i), v_inf_i))
+
+            # v_p_i_vec and v_p_f_vec
+            v_p_i_vec = v_p_i * v_p_unit_vec
+            v_p_f_vec = v_p_f * v_p_unit_vec
+
+            # r_p_unit_vec and r_p_vec
+            r_p_unit_vec = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                        theta=-np.pi / 2), v_p_i_vec).value)
+            r_p_vec = r_p * r_p_unit_vec
+
+            # eccentricity vectors
+            e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
+                      _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
+            e_f_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_f_vec)) / \
+                      _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
+
+            # Classical orbit parameters
+            inclination = np.arccos(
+                np.dot(np.array([0, 0, 1]), n_vec_orbital) / (np.linalg.norm(n_vec_orbital)))
+
+            n_vec = np.cross(np.array([0, 0, 1]), np.cross(r_p_vec, v_p_i_vec))
+            lan = np.arccos(np.dot(np.array([1, 0, 0]), n_vec) / (np.linalg.norm(n_vec) * 1))
+
+            if n_vec[1] < 0:
+                lan = 2 * np.pi - lan
+
+            aop = np.arccos(np.dot(n_vec, e_i_vec) / np.linalg.norm(n_vec) / np.linalg.norm(e_i_vec))
+
+            if e_i_vec[-1] < 0:
+                aop = 2 * np.pi - aop
+
+            if mode is 'vector_evaluation':
+                _gravass_params = gravass_parameters(type='vector',
+                                                     a_i_mag=a_i.to(u.km),
+                                                     a_f_mag=a_f.to(u.km),
+                                                     e_i_mag=e_i,
+                                                     e_i_vec=e_i_vec,
+                                                     e_f_mag=e_f,
+                                                     e_f_vec=e_f_vec,
+                                                     v_inf_i_vec=v_inf_i.to(u.km / u.s),
+                                                     v_inf_f_vec=v_inf_f.to(u.km / u.s),
+                                                     v_planet_i_vec=_itinerary_data_indexed['v']['p'].to(
+                                                         u.km / u.s),
+                                                     v_planet_f_vec=_itinerary_data_indexed['v']['p'].to(
+                                                         u.km / u.s),
+                                                     r_p_dv_mag=rp_dv * (u.km / u.s),
+                                                     v_p_i_vec=v_p_i * (u.km / u.s),
+                                                     v_p_f_vec=v_p_f * (u.km / u.s),
+                                                     t_p_i=0,
+                                                     t_p_f=0,
+                                                     aop=aop,
+                                                     lan=lan,
+                                                     inc=inclination)
+                _itinerary_data_indexed['ga'] = _gravass_params
+
+            if mode is 'iterative':
+
+                # while test <= tolerance:
+
+
+                    theta_inf_i = np.arccos(-1/e_i)
+                    theta_inf_f = np.arccos(-1/e_f).value
+
+                    H_rsoi_i = np.arcsinh(body_d_domain[self._body_string_lower(_itinerary_data_indexed['b'])]['upper']
+                                          * np.sin(theta_inf_i)/(a_i.value * np.sqrt(e_i**2 - 1)))
+
+                    H_rsoi_f = np.arcsinh(body_d_domain[self._body_string_lower(_itinerary_data_indexed['b'])]['upper']
+                                          * np.sin(theta_inf_f) / (a_f.value * np.sqrt(e_f.value ** 2 - 1))) * -1
+
+                    mu = _itinerary_data_indexed['b'].k.to(u.km ** 3 / u.s ** 2).value
+
+                    t_rsoi_i = np.sqrt((-a_i)**3/mu).value * (e_i * np.sinh(H_rsoi_i)-H_rsoi_i)
+                    t_rsoi_f = np.sqrt((-a_f)**3/mu).value * (e_f * np.sinh(H_rsoi_f)-H_rsoi_f)
+
+                    epoch_entry = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_i * u.s)
+                    epoch_exit = _itinerary_data_indexed['d'] + time.TimeDelta(t_rsoi_f * u.s)
+
+                    print(epoch_entry)
+                    print(epoch_exit)
+
+                    print(t_rsoi_i)
+                    print(t_rsoi_f)
+
+
     # PRELIMINARY STATIONARY ANALYSIS
     def stationary_process_itinerary(self, _raw_itinerary, _body_list, mode='fast', verbose=False):
         """
@@ -250,6 +411,8 @@ class TrajectoryTool(object):
                         print('Calculating gravity assist parameters...'.ljust(40) + ' ID: {}\n'.format(             # $
                             _raw_itinerary['id']))                                                                   # $
                     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+                    # Newton Rhapson convergence.
                     e_i_0 = 1.1
 
                     a_i = self.hyp_a(v_inf_i, _itinerary_data[i+1]['b'].k)
@@ -297,43 +460,48 @@ class TrajectoryTool(object):
                                                              laan=None,
                                                              inc=None)
 
+                        #
                         _itinerary_data[i + 1]['ga'] = _gravass_params
 
                     if mode is 'vector_evaluation':
+                        I = np.array([1, 0, 0])
+                        J = np.array([0, 1, 0])
+                        K = np.array([1, 0, 1])
+
                         # Orbital plane.
                         n_vec_orbital = self.unit_vector(np.cross(v_inf_i, v_inf_f))
 
                         # Rotation about orbital plane normal vector for v_p_unit_vec with angle of d_i.
-                        d_i                = 2 * np.arcsin(1/e_i)
-                        v_p_unit_vec       = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
-                                                                                          theta=d_i), v_inf_i))
+                        d_i = 2 * np.arcsin(1 / e_i)
+                        v_p_unit_vec = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                                    theta=d_i), v_inf_i))
 
                         # v_p_i_vec and v_p_f_vec
-                        v_p_i_vec          = v_p_i * v_p_unit_vec
-                        v_p_f_vec          = v_p_f * v_p_unit_vec
+                        v_p_i_vec = v_p_i * v_p_unit_vec
+                        v_p_f_vec = v_p_f * v_p_unit_vec
 
                         # r_p_unit_vec and r_p_vec
-                        r_p_unit_vec       = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
-                                                                                          theta=-np.pi/2), v_p_i_vec).value)
-                        r_p_vec            = r_p * r_p_unit_vec
+                        r_p_unit_vec = self.unit_vector(np.dot(self.rotation_matrix(axis=n_vec_orbital,
+                                                                                    theta=-np.pi / 2), v_p_i_vec).value)
+                        r_p_vec = r_p * r_p_unit_vec
 
                         # eccentricity vectors
-                        e_i_vec                = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
-                                             _itinerary_data[i+1]['b'].k.to(u.km**3/u.s**2).value - r_p_unit_vec
-                        e_f_vec                = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_f_vec)) / \
-                                             _itinerary_data[i+1]['b'].k.to(u.km**3/u.s**2).value - r_p_unit_vec
+                        e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
+                                  _itinerary_data[i + 1]['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
+                        e_f_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_f_vec)) / \
+                                  _itinerary_data[i + 1]['b'].k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
                         # Classical orbit parameters
-                        inclination = np.arccos(np.dot(np.array([0, 0, 1]), n_vec_orbital)/(np.linalg.norm(n_vec_orbital)))
+                        inclination = np.arccos(
+                            np.dot(np.array([0, 0, 1]), n_vec_orbital) / (np.linalg.norm(n_vec_orbital)))
 
                         n_vec = np.cross(np.array([0, 0, 1]), np.cross(r_p_vec, v_p_i_vec))
-
-                        lan = np.arccos(np.dot(np.array([1, 0, 0]), n_vec)/(np.linalg.norm(n_vec)*1))
+                        lan = np.arccos(np.dot(np.array([1, 0, 0]), n_vec) / (np.linalg.norm(n_vec) * 1))
 
                         if n_vec[1] < 0:
                             lan = 2 * np.pi - lan
 
-                        aop  = np.arccos(np.dot(n_vec, e_i_vec)/np.linalg.norm(n_vec)/np.linalg.norm(e_i_vec))
+                        aop = np.arccos(np.dot(n_vec, e_i_vec) / np.linalg.norm(n_vec) / np.linalg.norm(e_i_vec))
 
                         if e_i_vec[-1] < 0:
                             aop = 2 * np.pi - aop
@@ -345,13 +513,15 @@ class TrajectoryTool(object):
                                                              e_i_vec=e_i_vec,
                                                              e_f_mag=e_f,
                                                              e_f_vec=e_f_vec,
-                                                             v_inf_i_vec=v_inf_i.to(u.km/u.s),
-                                                             v_inf_f_vec=v_inf_f.to(u.km/u.s),
-                                                             v_planet_i_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
-                                                             v_planet_f_vec=_itinerary_data[i + 1]['v']['p'].to(u.km / u.s),
-                                                             r_p_dv_mag=rp_dv*(u.km / u.s),
-                                                             v_p_i_vec=v_p_i*(u.km / u.s),
-                                                             v_p_f_vec=v_p_f*(u.km / u.s),
+                                                             v_inf_i_vec=v_inf_i.to(u.km / u.s),
+                                                             v_inf_f_vec=v_inf_f.to(u.km / u.s),
+                                                             v_planet_i_vec=_itinerary_data[i + 1]['v']['p'].to(
+                                                                 u.km / u.s),
+                                                             v_planet_f_vec=_itinerary_data[i + 1]['v']['p'].to(
+                                                                 u.km / u.s),
+                                                             r_p_dv_mag=rp_dv * (u.km / u.s),
+                                                             v_p_i_vec=v_p_i * (u.km / u.s),
+                                                             v_p_f_vec=v_p_f * (u.km / u.s),
                                                              t_p_i=0,
                                                              t_p_f=0,
                                                              aop=aop,
@@ -693,8 +863,11 @@ if __name__ == '__main__':
                             'durations': [2.115, 22.852]
                             }
         # ----------------------------------------------------------------------------------------------------------
-        processed = _test.stationary_process_itinerary(__raw_itinerary2, __raw_itinerary1, mode='full')
-        print(processed)
+        processed = _test.stationary_process_itinerary(__raw_itinerary2, __raw_itinerary1, mode='iterative')
+
+        # print(processed)
+
+        _test.powered_gravity_assist(processed[1], mode='iterative')
 
         # total = [24-float(i) for i in np.linspace(0, 9, 100)]
 

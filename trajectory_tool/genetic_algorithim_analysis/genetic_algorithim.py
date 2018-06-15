@@ -430,11 +430,7 @@ if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
     TO_DO = 0
-    """
-    -0.5 1464 50697 00000 7359
-    Gen: 606             Fitness: -0.04       Chromosome: 8841 61111 00000 7636
 
-    """
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
     # 0.98 2247 50699 20963 6999
@@ -481,25 +477,6 @@ if __name__ == '__main__':
                 print('bye!')
                 EvolutionaryAlgorithim.save_generation(Population)
                 raise
-            # except:
-            # report error and proceed
-            # if count % 5 == 0:
-            #     print(Population.current_generation)
 
     if to_do[TO_DO] is 'other':
         print(fitness_function(Chromosome, '1449 50662 00000 7999', tt))
-        # z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')
-        # print(Chromosome.similarity(z1,z2))
-        # print(difflib.SequenceMatcher(a=z1,b=z2).ratio())
-        # print(z1)
-        # print(z2)
-        # X1 = [pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_{}'.format(i)))['Fitness'].tolist()[0] for i in range(124)]
-        # # X2 = [pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_{}'.format(i)))['Chromosome'].tolist()[0].split(' ')[0] for i in range(124)]
-        # X2 = np.arange(0,124)
-        # x = pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_70'))
-        # X = x['Chromosome'].tolist()
-        # X = [int(i.split(' ')[0]) for i in X]
-        # # plt.plot(X, 15-np.array(x['Fitness'].tolist()))
-        # plt.plot(X2,X1)
-        # plt.show()
-
