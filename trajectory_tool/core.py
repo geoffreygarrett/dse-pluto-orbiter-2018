@@ -569,7 +569,7 @@ class TrajectoryTool(object):
 
             ss_hyp = Orbit.from_vectors(body, r=r_ent*(u.km), v=v_s_p_i, epoch=epoch)
             tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
-            ss.plot(ss_hyp2, label='test', color='0.8')
+            ss.plot(ss_hyp2, label='tests', color='0.8')
             ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
 
             if mode is 'plot2D':
@@ -1482,7 +1482,7 @@ if __name__ == '__main__':
 #
 #             ss_hyp = Orbit.from_vectors(body, r=r_ent*(u.km), v=v_s_p_i, epoch=epoch)
 #             tv = time_range(start=epoch, periods=150, end=epoch + time.TimeDelta(100 * u.day))
-#             ss.plot(ss_hyp2, label='test', color='0.8')
+#             ss.plot(ss_hyp2, label='tests', color='0.8')
 #             ss.plot_trajectory(ss_hyp.sample(tv)[-1], label=str(body), color='green')
 #
 #             if mode is 'plot2D':
@@ -1683,10 +1683,10 @@ if __name__ == '__main__':
 # if __name__ == '__main__':
 #
 #     ####################################################################################################################
-#     test = True
+#     tests = True
 #     _test = TrajectoryTool()
 #     ####################################################################################################################
-#     if test:
+#     if tests:
 #         # for i in range(100):
 #         # TEST EJP -------------------------------------------------------------------------------------------------
 #         __raw_itinerary1 = ['earth', 'jupiter', 'pluto']
