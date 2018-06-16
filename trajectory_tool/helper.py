@@ -9,9 +9,15 @@ USER = 'Jones1311'
 plotly.tools.set_credentials_file(username=USER, api_key=KEY)
 lambert_parameters = namedtuple('lambert_parameters', 'r0 r1 v0 v1 tof attractor epoch0 epoch1 ss0 ss1 sst')
 gravass_parameters = namedtuple('gravass_parameters', 'a_i_mag a_f_mag e_i_mag e_f_mag v_inf_i_vec v_inf_f_vec v_planet_i_vec v_planet_f_vec r_p_dv_mag '
-                                                      'v_p_i_vec v_p_f_vec t_p_i t_p_f e_i_vec e_f_vec aop lan inc type')
+                                                      'v_p_i_vec v_p_f_vec t_p_i t_p_f e_i_vec e_f_vec aop lan inc type r_entry r_exit epoch_entry epoch_exit body_ga epoch_rp r_p')
 
-# a_i_mag=a_i.to(u.km),
+# ,
+#                                                  r_entry=r_entry,
+#                                                  r_exit=r_exit,
+#                                                  epoch_entry=None,
+#                                                  epoch_exit=None,
+#                                                  body_ga=_itinerary_data_indexed['b'])
+# # a_i_mag=a_i.to(u.km),
 #                                                          a_f_mag=a_f.to(u.km),
 #                                                          e_i_mag=e_i,
 #                                                          e_f_mag=e_f,

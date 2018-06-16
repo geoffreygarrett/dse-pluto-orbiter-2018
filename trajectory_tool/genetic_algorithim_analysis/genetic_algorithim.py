@@ -451,9 +451,9 @@ if __name__ == '__main__':
 
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
-        results = tt.stationary_process_itinerary(raw, bodyl, mode='scalar_evaluation')
+        results = tt.stationary_process_itinerary(raw, bodyl, mode='vector_evaluation')
         print('penis: ',results[-1]['v']['p'])
-        print([results[k]['dv'] for k in range(len(results))])
+        # print([results[k]['dv'] for k in range(len(results))])
 
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.
