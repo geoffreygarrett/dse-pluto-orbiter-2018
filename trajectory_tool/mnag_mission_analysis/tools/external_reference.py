@@ -27,19 +27,19 @@ def hyp_a(v_inf, mu):
     return (- mu / (np.square(np.linalg.norm(v_inf.to(u.km / u.s))) * (u.km / u.s) ** 2)).to(u.km)
 
 
-def newton_rhapson_pga(self, v_inf_i, v_inf_f, mu_body, alpha_required):
+def newton_rhapson_pga(v_inf_i, v_inf_f, mu_body, alpha_required):
     e_i_0 = 1.1
-    a_i = self.hyp_a(v_inf_i, mu_body)
-    a_f = self.hyp_a(v_inf_f, mu_body)
+    a_i = hyp_a(v_inf_i, mu_body)
+    a_f = hyp_a(v_inf_f, mu_body)
 
     alpha_required = alpha_required
 
     def func(_e_i):
-        return self._f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value,
-                           alpha_req=alpha_required)
+        return f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value,
+                     alpha_req=alpha_required)
 
     def _fprime(_e_i):
-        return self._d_f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value)
+        return d_f_e_i(_e_i, a_i=a_i.to(u.km).value, a_f=a_f.to(u.km).value)
 
     e_i = optimize.newton(func, e_i_0, _fprime)
     r_p = a_i * (1 - e_i)
