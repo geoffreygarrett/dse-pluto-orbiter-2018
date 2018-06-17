@@ -2,6 +2,7 @@ from .planetary_node import PlanetaryNode
 from .tools.external_reference import *
 from .tools.geometry import *
 from poliastro.twobody import Orbit
+from astropy import time
 
 
 class PlanetaryFlyby(object):
@@ -43,11 +44,11 @@ class PlanetaryFlyby(object):
 
     @property
     def v_i(self):
-        return self._v_inf_i
+        return self._v_i
 
     @property
     def v_f(self):
-        return self._v_inf_f
+        return self._v_f
 
     @v_i.setter
     def v_i(self, arg):
@@ -57,62 +58,35 @@ class PlanetaryFlyby(object):
     def v_f(self, arg):
         self._v_i = arg
 
-    @property
-    def state(self):
-        return self._state
-
-    @property
-    def _state(self):
-        return self.__state[-1]
-
-    @_state.setter
-    def _state(self, arg):
-        _state_error = "Maintain the order of states: \n {}".format(self._order_of_states)
-        try:
-            if len(self.__state) is 0:
-                assert arg == self._order_of_states[0], _state_error
-                self.__state = []
-            elif len(self.__state) is 1:
-                assert arg == self._order_of_states[1], _state_error
-            elif len(self.__state) is 2:
-                assert arg == self._order_of_states[2], _state_error
-        except AssertionError:
-            raise EnvironmentError(_state_error)
-        self.__state.append(arg)
-
     def _base_gravity_assist(self, v_i, v_f):
-        # TODO: Fix the assertion of v_i and v_f
-        self.v_i = self.planetary_node.v_i
-        self.v_f = v_f
-        v_planet_periapsis = Orbit.from_body_ephem(self.planetary_node.body, self.planetary_node.epoch_periapsis)
-        self._v_inf_i = self.v_i - v_planet_periapsis
-        self._v_inf_f = self.v_f - v_planet_periapsis
+        self._v_i = v_i
+        self._v_f = v_f
+        v_planet_entry = Orbit.from_body_ephem(self.planetary_node.body,
+                                               time.Time(self.planetary_node.epoch_entry, scale='tdb')).state.v
+        v_planet_exit = Orbit.from_body_ephem(self.planetary_node.body,
+                                              time.Time(self.planetary_node.epoch_exit, scale='tdb')).state.v
+        self._v_inf_i = self._v_i - v_planet_entry
+        self._v_inf_f = self._v_f - v_planet_exit
         self._alpha_required = angle_between(self._v_inf_i, self._v_inf_f)
 
-    def check_gravity_assist(self, v_i, v_f):
-        self._base_gravity_assist(v_i, v_f)
-        self._state = 'checked'
+    def check_gravity_assist(self):
+        self._base_gravity_assist(self.planetary_node.v_entry, self.planetary_node.v_exit)
         alpha_max = alpha(self._v_inf_i, self._v_inf_f, self.planetary_node.periapsis_minimum,
                           self.planetary_node.body.k)
         try:
-            assert self._alpha_required <= alpha_max
+            assert self._alpha_required*u.rad <= alpha_max
         except AssertionError:
             raise NotImplementedError("Gravity assist bending angle required (α_req) exceeds possible bending angle "
                                       "(α_max)\nwith a single impulse at periapsis. Multiple impulses are not "
                                       "implemented.\n{} > {}".format(self._alpha_required, alpha_max))
 
-    def rough_powered_gravity_assist(self, v_i=None, v_f=None):
-
-        if self._alpha_required is None:
-            assert v_i is not None and v_f is not None, "v_i and v_f must be provided in this current state. \n" \
-                                                        "Current state: {}".format(self.state)
-            self.check_gravity_assist(v_i, v_f)
-        self._state= 'rough'
+    def rough_powered_gravity_assist(self):
+        self.check_gravity_assist()
         # TODO: Add first epoch_entry and epoch_exit for rough solution.
-        self._ecc_i, self._ecc_f, self._sma_i, self._sma_f, self._vp_i, self._vp_f, self._rp_DV , self._rp = \
+        self._ecc_i, self._ecc_f, self._sma_i, self._sma_f, self._vp_i, self._vp_f, self._rp_DV, self._rp = \
             newton_rhapson_pga(self._v_inf_i, self._v_inf_f, self.planetary_node.body.k, self._alpha_required)
 
-    def refined_powered_gravity_assist(self):
+    # def refined_powered_gravity_assist(self):
 
 
 

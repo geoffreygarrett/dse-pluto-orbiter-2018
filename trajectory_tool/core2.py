@@ -169,7 +169,7 @@ class TrajectoryTool(object):
         self.N = 500
 
     # EQUATIONS DEFINED BY ELIZABETTA IORFIDA  TODO: FINISH REFERENCE [21]
-    @staticmethodimport astropy.units as u
+    @staticmethod
     def _alpha(v_inf_i, v_inf_f, r_p, mu_body):
         return np.arcsin(1/(1+(r_p*np.square(np.linalg.norm(v_inf_i.to(u.km/u.s))))*(u.km/u.s)**2/mu_body)) + \
                np.arcsin(1/(1+(r_p*np.square(np.linalg.norm(v_inf_f.to(u.km/u.s))))*(u.km/u.s)**2/mu_body))

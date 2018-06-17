@@ -6,7 +6,6 @@ import astropy.units as u
 from poliastro.plotting import OrbitPlotter, OrbitPlotter3D
 from poliastro.twobody import Orbit
 from copy import copy
-plotly.offline.init_notebook_mode()
 from astropy import time
 
 import matplotlib.pyplot as plt
