@@ -3,7 +3,8 @@ from .tools.external_reference import *
 from .tools.geometry import *
 from poliastro.twobody import Orbit
 
-class Flyby(object):
+
+class PlanetaryFlyby(object):
     def __init__(self, planetary_node:PlanetaryNode):
         self._order_of_states = ['checked', 'rough', 'refined', 'plot']
 
@@ -32,6 +33,9 @@ class Flyby(object):
         self._aop = None
         self._inc = None
         self._raan = None
+
+    def __repr__(self):
+        return str(self._body) + ' Planetary Flyby | Periapsis epoch: ' + str(self._epoch_periapsis)
 
     @property
     def planetary_node(self):
@@ -77,7 +81,8 @@ class Flyby(object):
         self.__state.append(arg)
 
     def _base_gravity_assist(self, v_i, v_f):
-        self.v_i = v_i
+        # TODO: Fix the assertion of v_i and v_f
+        self.v_i = self.planetary_node.v_i
         self.v_f = v_f
         v_planet_periapsis = Orbit.from_body_ephem(self.planetary_node.body, self.planetary_node.epoch_periapsis)
         self._v_inf_i = self.v_i - v_planet_periapsis
@@ -97,12 +102,7 @@ class Flyby(object):
                                       "implemented.\n{} > {}".format(self._alpha_required, alpha_max))
 
     def rough_powered_gravity_assist(self, v_i=None, v_f=None):
-        """
-        :param v_i: [x, y, z] * astropy.unit
-        :param v_f: [x, y, z] * astropy.unit
-        :param mode: (str) | check / scalar / vector
-        :return:
-        """
+
         if self._alpha_required is None:
             assert v_i is not None and v_f is not None, "v_i and v_f must be provided in this current state. \n" \
                                                         "Current state: {}".format(self.state)
@@ -112,7 +112,7 @@ class Flyby(object):
         self._ecc_i, self._ecc_f, self._sma_i, self._sma_f, self._vp_i, self._vp_f, self._rp_DV , self._rp = \
             newton_rhapson_pga(self._v_inf_i, self._v_inf_f, self.planetary_node.body.k, self._alpha_required)
 
-    def refined_powered_gravity_assist(self, v_i=None, v_f=None):
+    def refined_powered_gravity_assist(self):
 
 
 

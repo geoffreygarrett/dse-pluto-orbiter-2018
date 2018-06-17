@@ -1,3 +1,6 @@
+from poliastro.bodies import Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto
+
+
 factor = {
     'mercury': 1.082,
 
@@ -56,4 +59,17 @@ body_d_domain = {
                             'upper': 3.16E6,
                             'lower': factor['pluto'] * 1188.
   }
+}
+
+# BODY OBJECT DICTIONARY FROM NAME
+body_list = {
+    'mercury': Mercury,
+    'venus': Venus,
+    'earth': Earth,
+    'mars': Mars,
+    'jupiter': Jupiter,
+    'saturn': Saturn,
+    'uranus': Uranus,
+    'neptune': Neptune,
+    'pluto': Pluto
 }
