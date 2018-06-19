@@ -1,20 +1,17 @@
-from datetime import datetime, timedelta
-import pandas as pd
-from poliastro import iod
 from trajectory_tool.mnag_mission_analysis.config import *
 from trajectory_tool.mnag_mission_analysis.tools.orbital_mechanics import *
 from trajectory_tool.mnag_mission_analysis.planetary_flyby import PlanetaryFlyby
 from trajectory_tool.mnag_mission_analysis.planetary_node import PlanetaryNode
 from trajectory_tool.mnag_mission_analysis.planetary_departure import PlanetaryDeparture
 from trajectory_tool.mnag_mission_analysis.planetary_rendezvous import PlanetaryRendezvous
-from astropy.coordinates import solar_system_ephemeris
-solar_system_ephemeris.set("jpl")
+from datetime import datetime, timedelta
+from poliastro import iod
+from tabulate import tabulate
+import pandas as pd
 
 
 class InterplanetaryTrajectory(object):
-
     def __init__(self):
-
         self._id = None
         self._planetary_nodes = []
         self._launch_date = None
@@ -54,32 +51,38 @@ class InterplanetaryTrajectory(object):
         self._id = itinerary['id']
         epoch_periapses = [self._launch_date] + [self._launch_date + timedelta(days=365*sum(self._durations[:i+1]))
                                                  for i in range(len(self._durations))]
-
         for i, node in enumerate(temp_planetary_nodes):
             planetary_node = PlanetaryNode()
             planetary_node.body = body_list[node]
             planetary_node.epoch_periapsis = epoch_periapses[i]
             self._planetary_nodes.append(planetary_node)
-
         self._planetary_departure = PlanetaryDeparture(self._planetary_nodes[0])
         self._planetary_flyby = [PlanetaryFlyby(node) for node in self._planetary_nodes[1:-1]]
         self._planetary_rendezvous = PlanetaryRendezvous(self._planetary_nodes[-1])
 
     def check_feasibility(self):
         self._multi_leg_lambert_solution()
-        for flyby in self._planetary_flyby:
+        for flyby in self.planetary_flyby:
             flyby.check_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
 
     def basic_analysis(self):
         self._multi_leg_lambert_solution()
-        for flyby in self._planetary_flyby:
+        # self.planetary_departure.calculate_basic()
+        for flyby in self.planetary_flyby:
             flyby.basic_powered_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
+        # self.planetary_rendezvous.calculate_basic()
 
     def refined_analysis(self):
-        self._multi_leg_lambert_solution()
-        for flyby in self._planetary_flyby:
-            flyby.refined_powered_gravity_assist()
-
+        boundary_error_velocity = 10                    # random
+        boundary_error_position = 10                    # random
+        while (boundary_error_velocity >= 10 ** (-6)) and (boundary_error_position >= 10 ** (-3)):    # 1 mm/s / 1 km
+            self._multi_leg_lambert_solution()
+            self.planetary_departure.calculate_refined()
+            for flyby in self.planetary_flyby:
+                flyby.refined_powered_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
+            self.planetary_rendezvous.calculate_refined()
+            boundary_error_velocity = sum([flyby.refined_attributes.error_v for flyby in self.planetary_flyby])
+            boundary_error_position = sum([flyby.refined_attributes.error_p for flyby in self.planetary_flyby])
 
 
 if __name__ == '__main__':
@@ -93,13 +96,15 @@ if __name__ == '__main__':
     ejp = InterplanetaryTrajectory()
     ejp.process_itinerary(__itinerary)
 
-    ejp.check_feasibility()
+    # ejp.check_feasibility()
+
     ejp.basic_analysis()
     # ejp.refined_analysis()
 
-
     with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 10000):
         np.set_printoptions(precision=3)
+
+        print(tabulate(ejp.planetary_flyby[0].basic_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
         # print(ejp.planetary_flyby[0].data_frame)
         # print(ejp.planetary_flyby[0]._basic_attributes.r_p)
 

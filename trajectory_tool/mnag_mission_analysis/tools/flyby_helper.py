@@ -3,6 +3,7 @@ import astropy.units as u
 from scipy import optimize
 from .geometry import *
 from trajectory_tool.mnag_mission_analysis.data_structures import *
+import pandas as pd
 
 
 def alpha(v_inf_i, v_inf_f, r_p, mu_body):
@@ -62,6 +63,55 @@ def basic_flyby(_base_gravity_assist, planetary_node):
     basic_attributes.r_p_dv = args[6]
     basic_attributes.r_p = args[7]
     return basic_attributes
+
+
+def basic_flyby_df(_flyby_basic: flyby_basic, unit=False):
+    columns = ['IN_OUT', 'v', 'v_inf', 'v_planet', 'ecc', 'sma', 'v_p', 'r_p', 'dv']
+    df_in = pd.DataFrame(columns=columns)
+    df_out = pd.DataFrame(columns=columns)
+
+    if unit:
+        df_in.IN_OUT = ['IN']
+        df_in.v = [np.linalg.norm(_flyby_basic.v_i.to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_inf = [np.linalg.norm(_flyby_basic.v_inf_i.to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_planet = [np.linalg.norm(_flyby_basic.v_planet_i.to(u.km/u.s)) * (u.km/u.s)]
+        df_in.ecc = [_flyby_basic.ecc_i]
+        df_in.sma = [_flyby_basic.sma_i.to(u.km)]
+        df_in.v_p = [_flyby_basic.v_p_i * u.km/u.s]
+        df_in.r_p = [_flyby_basic.r_p.to(u.km)]
+        df_in.dv = [_flyby_basic.r_p_dv * u.km/u.s]
+
+        df_out.IN_OUT = ['OUT']
+        df_out.v = [np.linalg.norm(_flyby_basic.v_f.to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_inf = [np.linalg.norm(_flyby_basic.v_inf_f.to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_planet = [np.linalg.norm(_flyby_basic.v_planet_f.to(u.km/u.s)) * (u.km/u.s)]
+        df_out.ecc = [_flyby_basic.ecc_f]
+        df_out.sma = [_flyby_basic.sma_f.to(u.km)]
+        df_out.v_p = [_flyby_basic.v_p_f * u.km/u.s]
+        df_out.r_p = [_flyby_basic.r_p.to(u.km)]
+        df_out.dv = [_flyby_basic.r_p_dv * u.km/u.s]
+
+    else:
+        df_in.IN_OUT = ['IN']
+        df_in.v = [np.linalg.norm(_flyby_basic.v_i.to(u.km / u.s))]
+        df_in.v_inf = [np.linalg.norm(_flyby_basic.v_inf_i.to(u.km / u.s))]
+        df_in.v_planet = [np.linalg.norm(_flyby_basic.v_planet_i.to(u.km / u.s))]
+        df_in.ecc = [_flyby_basic.ecc_i]
+        df_in.sma = [_flyby_basic.sma_i.to(u.km).value]
+        df_in.v_p = [_flyby_basic.v_p_i]
+        df_in.r_p = [_flyby_basic.r_p.to(u.km).value]
+        df_in.dv = [_flyby_basic.r_p_dv]
+
+        df_out.IN_OUT = ['OUT']
+        df_out.v = [np.linalg.norm(_flyby_basic.v_f.to(u.km / u.s))]
+        df_out.v_inf = [np.linalg.norm(_flyby_basic.v_inf_f.to(u.km / u.s))]
+        df_out.v_planet = [np.linalg.norm(_flyby_basic.v_planet_f.to(u.km / u.s))]
+        df_out.ecc = [_flyby_basic.ecc_f]
+        df_out.sma = [_flyby_basic.sma_f.to(u.km).value]
+        df_out.v_p = [_flyby_basic.v_p_f]
+        df_out.r_p = [_flyby_basic.r_p.to(u.km).value]
+        df_out.dv = [_flyby_basic.r_p_dv]
+    return df_in.append(df_out)
 
 
 def guess_flyby(basic_attributes, planetary_node):

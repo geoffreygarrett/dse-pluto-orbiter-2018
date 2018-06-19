@@ -11,7 +11,6 @@ import pandas as pd
 
 class PlanetaryFlyby(object):
     def __init__(self, planetary_node: PlanetaryNode):
-
         # General Attributes
         self._planetary_node = planetary_node
         self._body = planetary_node.body
@@ -30,59 +29,6 @@ class PlanetaryFlyby(object):
 
     def __repr__(self):
         return str(self._body) + ' Planetary Flyby | Periapsis epoch: ' + str(self._epoch_periapsis)
-
-    @property
-    def data_frame(self):
-        # TODO: Clean this up eventually, ONLY prints for rough currently.
-        rough = ['ENTRY_EXIT', 'V_heliocentric_x', 'V_heliocentric_y', 'V_heliocentric_z', 'V_infinity_x',
-                 'V_infinity_y', 'V_infinity_z', 'V_planet_x', 'V_planet_y', 'V_planet_z', 'V_periapsis', 'SMA', 'ECC',
-                 'rp', 'DV']
-        refined = []
-        df = pd.DataFrame(columns=rough + refined)
-        df = df.astype('object')
-        df.ENTRY_EXIT = ['ENTRY']
-        df.V_heliocentric_x = [self._v_i.to(u.km / u.s)[0]]
-        df.V_heliocentric_y = [self._v_i.to(u.km / u.s)[1]]
-        df.V_heliocentric_z = [self._v_i.to(u.km / u.s)[2]]
-        df.V_infinity_x = [self._v_inf_i.to(u.km / u.s)[0]]
-        df.V_infinity_y = [self._v_inf_i.to(u.km / u.s)[1]]
-        df.V_infinity_z = [self._v_inf_i.to(u.km / u.s)[2]]
-        df.V_periapsis = [self._vp_i * (u.km / u.s)]
-        df.V_planet_x = [self._v_planet_i.to(u.km / u.s)[0]]
-        df.V_planet_y = [self._v_planet_i.to(u.km / u.s)[1]]
-        df.V_planet_z = [self._v_planet_i.to(u.km / u.s)[2]]
-        df.SMA = [self._sma_i]
-        df.ECC = [self._ecc_i]
-        df.rp = [self._rp]
-        df.DV = [self._rp_DV]
-
-        df2 = pd.DataFrame(columns=rough + refined)
-        df2 = df2.astype('object')
-        df2.ENTRY_EXIT = ['EXIT']
-        df2.V_heliocentric_x = [self._v_f.to(u.km / u.s)[0]]
-        df2.V_heliocentric_y = [self._v_f.to(u.km / u.s)[1]]
-        df2.V_heliocentric_z = [self._v_f.to(u.km / u.s)[2]]
-        df2.V_infinity_x = [self._v_inf_f.to(u.km / u.s)[0]]
-        df2.V_infinity_y = [self._v_inf_f.to(u.km / u.s)[1]]
-        df2.V_infinity_z = [self._v_inf_f.to(u.km / u.s)[2]]
-        df2.V_periapsis = [self._vp_f * (u.km / u.s)]
-        df2.V_planet_x = [self._v_planet_f.to(u.km / u.s)[0]]
-        df2.V_planet_y = [self._v_planet_f.to(u.km / u.s)[1]]
-        df2.V_planet_z = [self._v_planet_f.to(u.km / u.s)[2]]
-        df2.SMA = [self._sma_f]
-        df2.SMA = df2.SMA
-        df2.ECC = [self._ecc_f]
-        df2.rp = self._rp
-        df2.DV = self._rp_DV
-
-        np.set_printoptions(precision=3)
-        df_all = df.append(df2)
-        for par in ['SMA', 'ECC', 'DV', 'rp', 'V_heliocentric_x', 'V_heliocentric_y', 'V_heliocentric_z',
-                    'V_infinity_x', 'V_infinity_y', 'V_infinity_z', 'V_planet_x', 'V_planet_y', 'V_planet_z',
-                    'V_periapsis']:
-            df_all[par] = df_all[par].map(lambda x: '{0:.5}'.format(x))
-
-        return df_all
 
     @property
     def planetary_node(self):
@@ -128,7 +74,7 @@ class PlanetaryFlyby(object):
         return basic_flyby(self._base_gravity_assist(v_i, v_f), self.planetary_node)
 
     def basic_powered_gravity_assist(self, v_i, v_f):
-        self._basic_attributes = self._base_gravity_assist(v_i, v_f)
+        self.basic_attributes = self._basic_powered_gravity_assist(v_i, v_f)
 
     @property
     def guess_attributes(self):
@@ -145,6 +91,7 @@ class PlanetaryFlyby(object):
     @basic_attributes.setter
     def basic_attributes(self, arg: flyby_basic):
         self.basic_dataframe = arg
+        self._basic_attributes = arg
 
     @guess_attributes.setter
     def guess_attributes(self, arg: flyby_guess):
@@ -168,20 +115,15 @@ class PlanetaryFlyby(object):
 
     @basic_dataframe.setter
     def basic_dataframe(self, arg: flyby_basic):
-        columns = ['IN_OUT', 'v', 'v_inf', 'v_planet', 'ecc', 'sma', 'v_p', 'r_p', 'dv']
-        df_in  = pd.DataFrame(columns)
-        df_out = pd.DataFrame(columns)
-        
-        self._basic_dataframe = df()
+        self._basic_dataframe = basic_flyby_df(arg, unit=False)
 
     @guess_dataframe.setter
     def guess_dataframe(self, arg: flyby_guess):
-        df = pd.DataFrame()
-        self._guess_dataframe = df
+        self._guess_dataframe = guess_flyby_df(arg, unit=False)
 
     @refined_dataframe.setter
     def refined_dataframe(self, arg: flyby_refined):
-        self._refined_dataframe = df
+        self._refined_dataframe = refined_flyby_df(arg, unit=False)
 
     def guess_powered_gravity_assist(self, v_i, v_f):
         if self.state is 'checked':

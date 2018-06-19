@@ -1,6 +1,7 @@
 from poliastro.bodies import Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto
+from astropy.coordinates import solar_system_ephemeris
 
-
+solar_system_ephemeris.set("jpl")
 
 factor = {
     'mercury': 1.082,
