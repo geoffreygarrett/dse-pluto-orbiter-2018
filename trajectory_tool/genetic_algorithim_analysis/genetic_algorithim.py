@@ -17,6 +17,7 @@ POPULATION_SIZE = 200
 SIMILARITY_FILTER = 0.75
 # ELITE_QUANTITY = 1.0
 CROSSOVER_THRESHOLD = 0.4
+from pprint import pprint
 
 FIRST_LEG_LIMIT_UPPER = 6000
 LAST_LEG_LIMIT_UPPER = 6000
@@ -438,6 +439,7 @@ if __name__ == '__main__':
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
     INSPECT = '1057 50756 00000 7998'
+    INSPECT = '1449 50662 00000 7999'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -452,8 +454,14 @@ if __name__ == '__main__':
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
         results = tt.stationary_process_itinerary(raw, bodyl, mode='vector_evaluation')
-        print('penis: ',results[-1]['v']['p'])
-        # print([results[k]['dv'] for k in range(len(results))])
+        pprint(results)
+        # print(sum(results[i]['dv'] for i in range(len(results))))
+        vc = np.sqrt(Earth.k/(6378*u.km + 180*u.km))
+        v_inf2 = ((np.linalg.norm(results[0]['v']['d']-results[0]['v']['p'])) * u.km / u.s)
+        print(v_inf2)
+
+        ans = vc*(np.sqrt(2+(v_inf2/vc)**2)-1)
+        print('here fab: ', ans.to(u.km/u.s))
 
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.

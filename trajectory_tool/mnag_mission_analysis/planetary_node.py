@@ -152,7 +152,7 @@ class PlanetaryNode(object):
 
     @epoch_periapsis.setter
     def epoch_periapsis(self, arg: datetime):
-        self._soi_periapsis_magnitude = arg
+        self.soi_periapsis_magnitude = arg
         self._epoch_periapsis = arg
         self._orbit_object_periapsis_epoch = Orbit.from_body_ephem(self.body, time.Time(arg, scale='tdb'))
 
@@ -174,7 +174,11 @@ class PlanetaryNode(object):
 
     @soi_exit_magnitude.setter
     def soi_exit_magnitude(self, arg: datetime):
-        self._soi_entry_magnitude = soi(self._body, arg)
+        self._soi_exit_magnitude = soi(self._body, arg)
+
+    @soi_periapsis_magnitude.setter
+    def soi_periapsis_magnitude(self, arg: datetime):
+        self._soi_periapsis_magnitude = soi(self._body, arg)
 
     @v_entry.setter
     def v_entry(self, arg):

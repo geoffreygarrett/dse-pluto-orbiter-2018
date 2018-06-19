@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pandas as pd
 from poliastro import iod
 from trajectory_tool.mnag_mission_analysis.config import *
 from trajectory_tool.mnag_mission_analysis.tools.orbital_mechanics import *
@@ -54,7 +55,6 @@ class InterplanetaryTrajectory(object):
         epoch_periapses = [self._launch_date] + [self._launch_date + timedelta(days=365*sum(self._durations[:i+1]))
                                                  for i in range(len(self._durations))]
 
-        print(epoch_periapses)
         for i, node in enumerate(temp_planetary_nodes):
             planetary_node = PlanetaryNode()
             planetary_node.body = body_list[node]
@@ -68,15 +68,18 @@ class InterplanetaryTrajectory(object):
     def check_feasibility(self):
         self._multi_leg_lambert_solution()
         for flyby in self._planetary_flyby:
-            flyby.check_gravity_assist()
+            flyby.check_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
 
-    def rough_analysis(self):
+    def basic_analysis(self):
         self._multi_leg_lambert_solution()
         for flyby in self._planetary_flyby:
-            flyby.rough_powered_gravity_assist()
+            flyby.basic_powered_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
 
     def refined_analysis(self):
-        pass
+        self._multi_leg_lambert_solution()
+        for flyby in self._planetary_flyby:
+            flyby.refined_powered_gravity_assist()
+
 
 
 if __name__ == '__main__':
@@ -91,9 +94,14 @@ if __name__ == '__main__':
     ejp.process_itinerary(__itinerary)
 
     ejp.check_feasibility()
-    ejp.rough_analysis()
+    ejp.basic_analysis()
+    # ejp.refined_analysis()
 
-    print(ejp.planetary_flyby[0]._rp_DV)
+
+    with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 10000):
+        np.set_printoptions(precision=3)
+        # print(ejp.planetary_flyby[0].data_frame)
+        # print(ejp.planetary_flyby[0]._basic_attributes.r_p)
 
 
 

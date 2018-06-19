@@ -1,6 +1,9 @@
 import math
 import numpy as np
 from copy import deepcopy
+from poliastro.twobody import Orbit
+import astropy.units as u
+from astropy import time
 
 
 def unit_vector(vector):
@@ -31,15 +34,17 @@ def angle_between(v1, v2):
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
 
-def angle_between_cc(self, v1, v2):
-    # TODO: Change the rotation check method from z to the normal vector.
-    """ Returns the angle clockwise in z from v1 to v2."""
-    a_i = self.angle_between(v1, v2)
-    # rotation check
-    v2_n = np.matmul(self.rotation_z(0.01), deepcopy(v2))
-    a_new = self.angle_between(v1, v2_n)
-    if a_new > a_i:  # Clockwise measurement
-        angle = a_i
-    else:
-        angle = 2 * np.pi - a_i  # Adjust for clockwise measurement
-    return angle
+# def angle_between_cc(self, v1, v2):
+#     # TODO: Change the rotation check method from z to the normal vector.
+#     """ Returns the angle clockwise in z from v1 to v2."""
+#     a_i = self.angle_between(v1, v2)
+#     # rotation check
+#     v2_n = np.matmul(self.rotation_z(0.01), deepcopy(v2))
+#     a_new = self.angle_between(v1, v2_n)
+#     if a_new > a_i:  # Clockwise measurement
+#         angle = a_i
+#     else:
+#         angle = 2 * np.pi - a_i  # Adjust for clockwise measurement
+#     return angle
+#
+
