@@ -43,7 +43,7 @@ def _newton_rhapson(v_inf_i, v_inf_f, mu_body, alpha_required):
     r_p = sma_i * (1 - ecc_i)
     ecc_f = - (r_p / sma_f - 1)
     v_p_i = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (ecc_i + 1) / (ecc_i - 1))
-    v_p_f = np.sqrt(np.square(np.linalg.norm(v_inf_i)) * (ecc_f + 1) / (ecc_f - 1))
+    v_p_f = np.sqrt(np.square(np.linalg.norm(v_inf_f)) * (ecc_f + 1) / (ecc_f - 1))
     r_p_dv = np.linalg.norm(v_p_f - v_p_i)
     return ecc_i, ecc_f, sma_i, sma_f, v_p_i, v_p_f, r_p_dv, r_p
 
@@ -118,9 +118,19 @@ def guess_flyby(basic_attributes, planetary_node):
     guess_attributes = flyby_guess
     args = pga_scalar_2_vector(basic_attributes.v_inf_i, basic_attributes.v_inf_f, basic_attributes.v_p_i,
                                basic_attributes.v_p_f, basic_attributes.sma_i, basic_attributes.sma_f,
-                               basic_attributes.ecc_i, basic_attributes.ecc.f, basic_attributes.r_p,
+                               basic_attributes.ecc_i, basic_attributes.ecc_f, basic_attributes.r_p,
                                planetary_node.body, planetary_node.soi_periapsis_magnitude,
                                planetary_node.epoch_periapsis)
+    guess_attributes.v_i = basic_attributes.v_i
+    guess_attributes.v_f = basic_attributes.v_f
+    guess_attributes.v_inf_i = basic_attributes.v_inf_i
+    guess_attributes.v_inf_f = basic_attributes.v_inf_f
+    guess_attributes.v_planet_i = planetary_node.v_entry
+    guess_attributes.v_planet_f = planetary_node.v_exit
+    guess_attributes.sma_i = basic_attributes.sma_i
+    guess_attributes.sma_f = basic_attributes.sma_f
+    guess_attributes.r_p = basic_attributes.r_p
+    guess_attributes.r_p_dv = basic_attributes.r_p_dv
     guess_attributes.v_p_i = args[0]
     guess_attributes.v_p_f = args[1]
     guess_attributes.raan = args[2]
@@ -132,6 +142,101 @@ def guess_flyby(basic_attributes, planetary_node):
     guess_attributes.ecc_f = args[8]
     guess_attributes.r_entry = args[9]
     guess_attributes.r_exit = args[10]
+    return guess_attributes
+
+
+def guess_flyby_df(_flyby_guess: flyby_guess, unit=False):
+    columns = ['IN_OUT', 'v_x', 'v_y', 'v_z', 'v_inf_x', 'v_inf_y', 'v_inf_z', 'v_planet_x', 'v_planet_y', 'v_planet_z', 'ecc',
+               'ecc_x', 'ecc_y', 'ecc_z', 'sma', 'v_p_x', 'v_p_y', 'v_p_z', 'r_p', 'dv']
+    df_in = pd.DataFrame(columns=columns)
+    df_out = pd.DataFrame(columns=columns)
+
+    if unit:
+        df_in.IN_OUT = ['IN']
+        df_in.v_x = [np.linalg.norm(_flyby_guess.v_i[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_y = [np.linalg.norm(_flyby_guess.v_i[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_z = [np.linalg.norm(_flyby_guess.v_i[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_inf_x = [np.linalg.norm(_flyby_guess.v_inf_i[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_inf_y = [np.linalg.norm(_flyby_guess.v_inf_i[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_inf_z = [np.linalg.norm(_flyby_guess.v_inf_i[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_planet_x = [np.linalg.norm(_flyby_guess.v_planet_i[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_planet_y = [np.linalg.norm(_flyby_guess.v_planet_i[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.v_planet_z = [np.linalg.norm(_flyby_guess.v_planet_i[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_in.ecc = [np.linalg.norm(_flyby_guess.ecc_i)]
+        df_in.ecc_x = [_flyby_guess.ecc_i[0]]
+        df_in.ecc_y = [_flyby_guess.ecc_i[1]]
+        df_in.ecc_z = [_flyby_guess.ecc_i[2]]
+        df_in.sma = [_flyby_guess.sma_i.to(u.km)]
+        df_in.v_p_x = [_flyby_guess.v_p_i[0]]
+        df_in.v_p_y = [_flyby_guess.v_p_i[1]]
+        df_in.v_p_z = [_flyby_guess.v_p_i[2]]
+        df_in.r_p = [_flyby_guess.r_p.to(u.km)]
+        df_in.dv = [_flyby_guess.r_p_dv * u.km/u.s]
+
+        df_out.IN_OUT = ['OUT']
+        df_out.v_x = [np.linalg.norm(_flyby_guess.v_f[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_y = [np.linalg.norm(_flyby_guess.v_f[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_z = [np.linalg.norm(_flyby_guess.v_f[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_inf_x = [np.linalg.norm(_flyby_guess.v_inf_f[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_inf_y = [np.linalg.norm(_flyby_guess.v_inf_f[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_inf_z = [np.linalg.norm(_flyby_guess.v_inf_f[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_planet_x = [np.linalg.norm(_flyby_guess.v_planet_f[0].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_planet_y = [np.linalg.norm(_flyby_guess.v_planet_f[1].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.v_planet_z = [np.linalg.norm(_flyby_guess.v_planet_f[2].to(u.km/u.s)) * (u.km/u.s)]
+        df_out.ecc = [np.linalg.norm(_flyby_guess.ecc_f)]
+        df_out.ecc_x = [_flyby_guess.ecc_f[0]]
+        df_out.ecc_y = [_flyby_guess.ecc_f[1]]
+        df_out.ecc_z = [_flyby_guess.ecc_f[2]]
+        df_out.sma = [_flyby_guess.sma_f.to(u.km)]
+        df_out.v_p_x = [_flyby_guess.v_p_f[0]]
+        df_out.v_p_y = [_flyby_guess.v_p_f[1]]
+        df_out.v_p_z = [_flyby_guess.v_p_f[2]]
+        df_out.r_p = [_flyby_guess.r_p.to(u.km)]
+        df_out.dv = [_flyby_guess.r_p_dv * u.km/u.s]
+
+    else:
+        df_in.IN_OUT = ['IN']
+        df_in.v_x = [np.linalg.norm(_flyby_guess.v_i[0].to(u.km/u.s))]
+        df_in.v_y = [np.linalg.norm(_flyby_guess.v_i[1].to(u.km/u.s))]
+        df_in.v_z = [np.linalg.norm(_flyby_guess.v_i[2].to(u.km/u.s))]
+        df_in.v_inf_x = [np.linalg.norm(_flyby_guess.v_inf_i[0].to(u.km/u.s))]
+        df_in.v_inf_y = [np.linalg.norm(_flyby_guess.v_inf_i[1].to(u.km/u.s))]
+        df_in.v_inf_z = [np.linalg.norm(_flyby_guess.v_inf_i[2].to(u.km/u.s))]
+        df_in.v_planet_x = [np.linalg.norm(_flyby_guess.v_planet_i[0].to(u.km/u.s))]
+        df_in.v_planet_y = [np.linalg.norm(_flyby_guess.v_planet_i[1].to(u.km/u.s))]
+        df_in.v_planet_z = [np.linalg.norm(_flyby_guess.v_planet_i[2].to(u.km/u.s))]
+        df_in.ecc = [np.linalg.norm(_flyby_guess.ecc_i)]
+        df_in.ecc_x = [_flyby_guess.ecc_i[0]]
+        df_in.ecc_y = [_flyby_guess.ecc_i[1]]
+        df_in.ecc_z = [_flyby_guess.ecc_i[2]]
+        df_in.sma = [_flyby_guess.sma_i.to(u.km).value]
+        df_in.v_p_x = [_flyby_guess.v_p_i[0].value]
+        df_in.v_p_y = [_flyby_guess.v_p_i[1].value]
+        df_in.v_p_z = [_flyby_guess.v_p_i[2].value]
+        df_in.r_p = [_flyby_guess.r_p.to(u.km).value]
+        df_in.dv = [_flyby_guess.r_p_dv]
+
+        df_out.IN_OUT = ['OUT']
+        df_out.v_x = [np.linalg.norm(_flyby_guess.v_f[0].to(u.km/u.s))]
+        df_out.v_y = [np.linalg.norm(_flyby_guess.v_f[1].to(u.km/u.s))]
+        df_out.v_z = [np.linalg.norm(_flyby_guess.v_f[2].to(u.km/u.s))]
+        df_out.v_inf_x = [np.linalg.norm(_flyby_guess.v_inf_f[0].to(u.km/u.s))]
+        df_out.v_inf_y = [np.linalg.norm(_flyby_guess.v_inf_f[1].to(u.km/u.s))]
+        df_out.v_inf_z = [np.linalg.norm(_flyby_guess.v_inf_f[2].to(u.km/u.s))]
+        df_out.v_planet_x = [np.linalg.norm(_flyby_guess.v_planet_f[0].to(u.km/u.s))]
+        df_out.v_planet_y = [np.linalg.norm(_flyby_guess.v_planet_f[1].to(u.km/u.s))]
+        df_out.v_planet_z = [np.linalg.norm(_flyby_guess.v_planet_f[2].to(u.km/u.s))]
+        df_out.ecc = [np.linalg.norm(_flyby_guess.ecc_f)]
+        df_out.ecc_x = [_flyby_guess.ecc_f[0]]
+        df_out.ecc_y = [_flyby_guess.ecc_f[1]]
+        df_out.ecc_z = [_flyby_guess.ecc_f[2]]
+        df_out.sma = [_flyby_guess.sma_f.to(u.km).value]
+        df_out.v_p_x = [_flyby_guess.v_p_f[0].value]
+        df_out.v_p_y = [_flyby_guess.v_p_f[1].value]
+        df_out.v_p_z = [_flyby_guess.v_p_f[2].value]
+        df_out.r_p = [_flyby_guess.r_p.to(u.km).value]
+        df_out.dv = [_flyby_guess.r_p_dv]
+    return df_in.append(df_out)
 
 
 def refined_flyby(guess_attributes, planetary_node):
@@ -152,6 +257,8 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
     v_p_i_vec = v_p_i * v_p_unit_vec
     v_p_f_vec = v_p_f * v_p_unit_vec
 
+
+
     # r_p_unit_vec and r_p_vec
     r_p_unit_vec = unit_vector(np.dot(rotation_matrix(axis=n_vec_orbital,
                                                                 theta=-np.pi / 2), v_p_i_vec).value)
@@ -161,6 +268,7 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
     # eccentricity vectors
     e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
+
     e_f_vec = np.cross(v_p_f_vec, np.cross(r_p_vec, v_p_f_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
@@ -200,10 +308,6 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
 
     ss_f_exit = Orbit.from_classical(attractor=body, a=a_f, ecc=e_f * u.one, inc=inclination * u.rad,
                                      raan=lan * u.rad, argp=aop * u.rad, nu=0 * u.rad, epoch=epoch_rp)
-
-    # r_entry = ss_i_entry.sample([time.Time(epoch_rp) + time.TimeDelta(t_rsoi_i * u.s)])[-1].get_xyz().value.flatten() * u.km
-    # r_exit = ss_f_exit.sample([time.Time(epoch_rp) + time.TimeDelta(t_rsoi_f * u.s)])[-1].get_xyz().value.flatten() * u.km
-
     r_entry = r_exit = [0,0,0]
 
     return v_p_i_vec, v_p_f_vec, lan, aop, inclination, t_rsoi_i, t_rsoi_f, e_i_vec, e_f_vec, r_entry, r_exit

@@ -38,6 +38,59 @@ class PlanetaryFlyby(object):
     def state(self):
         return self._state
 
+    @property
+    def guess_attributes(self):
+        return self._guess_attributes
+
+    @property
+    def basic_attributes(self):
+        return self._basic_attributes
+
+    @property
+    def refined_attributes(self):
+        if self._refined_attributes is None:
+            return self._guess_attributes
+        else:
+            return self._refined_attributes
+
+    @basic_attributes.setter
+    def basic_attributes(self, arg: flyby_basic):
+        self.basic_dataframe = arg
+        self._basic_attributes = arg
+
+    @guess_attributes.setter
+    def guess_attributes(self, arg: flyby_guess):
+        self.guess_dataframe = arg
+        self._guess_attributes = arg
+
+    @refined_attributes.setter
+    def refined_attributes(self, arg: flyby_refined):
+        self.refined_dataframe = arg
+
+    @property
+    def basic_dataframe(self):
+        return self._basic_dataframe
+
+    @property
+    def guess_dataframe(self):
+        return self._guess_dataframe
+
+    @property
+    def refined_dataframe(self):
+        return self._refined_dataframe
+
+    @basic_dataframe.setter
+    def basic_dataframe(self, arg: flyby_basic):
+        self._basic_dataframe = basic_flyby_df(arg, unit=False)
+
+    @guess_dataframe.setter
+    def guess_dataframe(self, arg: flyby_guess):
+        self._guess_dataframe = guess_flyby_df(arg, unit=False)
+
+    @refined_dataframe.setter
+    def refined_dataframe(self, arg: flyby_refined):
+        self._refined_dataframe = refined_flyby_df(arg, unit=False)
+
     @state.setter
     def state(self, arg):
         self._state = arg
@@ -76,65 +129,24 @@ class PlanetaryFlyby(object):
     def basic_powered_gravity_assist(self, v_i, v_f):
         self.basic_attributes = self._basic_powered_gravity_assist(v_i, v_f)
 
-    @property
-    def guess_attributes(self):
-        return self._guess_attributes
-
-    @property
-    def basic_attributes(self):
-        return self._basic_attributes
-
-    @property
-    def refined_attributes(self):
-        return self._refined_attributes
-
-    @basic_attributes.setter
-    def basic_attributes(self, arg: flyby_basic):
-        self.basic_dataframe = arg
-        self._basic_attributes = arg
-
-    @guess_attributes.setter
-    def guess_attributes(self, arg: flyby_guess):
-        self.guess_dataframe = arg
-
-    @refined_attributes.setter
-    def refined_attributes(self, arg: flyby_refined):
-        self.refined_dataframe = arg
-
-    @property
-    def basic_dataframe(self):
-        return self._basic_dataframe
-
-    @property
-    def guess_dataframe(self):
-        return self._guess_dataframe
-
-    @property
-    def refined_dataframe(self):
-        return self._refined_dataframe
-
-    @basic_dataframe.setter
-    def basic_dataframe(self, arg: flyby_basic):
-        self._basic_dataframe = basic_flyby_df(arg, unit=False)
-
-    @guess_dataframe.setter
-    def guess_dataframe(self, arg: flyby_guess):
-        self._guess_dataframe = guess_flyby_df(arg, unit=False)
-
-    @refined_dataframe.setter
-    def refined_dataframe(self, arg: flyby_refined):
-        self._refined_dataframe = refined_flyby_df(arg, unit=False)
-
     def guess_powered_gravity_assist(self, v_i, v_f):
         if self.state is 'checked':
             pass
         else:
             self.check_gravity_assist(v_i, v_f)
-        self._guess_attributes = guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
+        print(guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node))
+        self.guess_attributes = guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
 
-    def refined_powered_gravity_assist(self):
-        self.state = 'refined'
-        self.check_gravity_assist()
+    def refine_powered_gravity_assist(self, v_i, v_f):
+        if self.state is 'checked':
+            pass
+        else:
+            self.check_gravity_assist(v_i, v_f)
+        if self.guess_attributes is None:
+            self._guess_attributes = guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
+        # self._refined_attributes = refine_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node,
+        #                                         self.refined_attributes)
+
         self._vp_i, self._vp_f, self._raan, self._aop, self._inc, self._t_i, self._t_f, self._ecc_i, self._ecc_f, \
         self.planetary_node.soi_entry_position_body_ecliptic, self.planetary_node.soi_exit_position_body_ecliptic \
             = \

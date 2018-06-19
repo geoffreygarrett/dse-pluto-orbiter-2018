@@ -81,8 +81,8 @@ class InterplanetaryTrajectory(object):
             for flyby in self.planetary_flyby:
                 flyby.refined_powered_gravity_assist(flyby.planetary_node.v_entry, flyby.planetary_node.v_exit)
             self.planetary_rendezvous.calculate_refined()
-            boundary_error_velocity = sum([flyby.refined_attributes.error_v for flyby in self.planetary_flyby])
-            boundary_error_position = sum([flyby.refined_attributes.error_p for flyby in self.planetary_flyby])
+            boundary_error_velocity = sum([flyby.refine_attributes.error_v for flyby in self.planetary_flyby])
+            boundary_error_position = sum([flyby.refine_attributes.error_p for flyby in self.planetary_flyby])
 
 
 if __name__ == '__main__':
@@ -100,12 +100,14 @@ if __name__ == '__main__':
 
     ejp.basic_analysis()
     # ejp.refined_analysis()
+    ejp.planetary_flyby[0].guess_powered_gravity_assist(ejp.planetary_flyby[0].planetary_node.v_entry,
+                                                        ejp.planetary_flyby[0].planetary_node.v_exit)
 
     with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 10000):
         np.set_printoptions(precision=3)
-
+        print(ejp.planetary_flyby[0].guess_dataframe)
         print(tabulate(ejp.planetary_flyby[0].basic_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
-        # print(ejp.planetary_flyby[0].data_frame)
+        print(tabulate(ejp.planetary_flyby[0].guess_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
         # print(ejp.planetary_flyby[0]._basic_attributes.r_p)
 
 
