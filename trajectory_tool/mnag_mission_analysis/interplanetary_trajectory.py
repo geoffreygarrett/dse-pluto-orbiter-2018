@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from poliastro import iod
 from tabulate import tabulate
 import pandas as pd
+plotly.tools.set_credentials_file(username='Jones1311', api_key='FmmzPrMs3Xo3JRqW3Fpg')
 
 
 class InterplanetaryTrajectory(object):
@@ -43,6 +44,7 @@ class InterplanetaryTrajectory(object):
                                     r=node_arrival.soi_entry_position_heliocentric,
                                     tof=time.Time(node_arrival.epoch_entry, scale='tdb') -
                                     time.Time(node_departure.epoch_exit, scale='tdb'))
+            print(v0, v1)
             node_departure.v_exit = v0
 
             node_arrival.v_entry = v1
@@ -100,15 +102,13 @@ class InterplanetaryTrajectory(object):
             plot_propagation(self)
 
 
-
-
 if __name__ == '__main__':
     __itinerary = {'id': 1,
                    'planetary_nodes': ['earth', 'jupiter', 'pluto'],
                    'launch_date': datetime(2027, 12, 1, 0, 0),
                    'durations': [6, 8]}
 
-    iten = Chromosome.mapper('1449 50662 00000 7999')
+    iten = Chromosome.mapper('1057 50756 00000 7998')
 
     # TODO: Fix chromosome mapper for new itinerary format
 
@@ -119,14 +119,14 @@ if __name__ == '__main__':
     ejp.planetary_flyby[0].guess_powered_gravity_assist(ejp.planetary_flyby[0].planetary_node.v_entry,
                                                         ejp.planetary_flyby[0].planetary_node.v_exit)
 
-    with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 10000):
+    with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 300):
         np.set_printoptions(precision=3)
 
         # print(tabulate(ejp.planetary_flyby[0].basic_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
-        # print(tabulate(ejp.planetary_flyby[0].guess_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
-        print(tabulate(ejp.planetary_flyby[0].refined_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
-
-        ejp.plot3D(interplanetary=True)
+        print(ejp.planetary_flyby[0].guess_dataframe)
+        print(ejp.planetary_flyby[0].refined_dataframe)
+        # print(ejp.planetary_flyby[0].refined_dataframe)
+        ejp.plot3D(interplanetary=False, flyby=True)
 
 
 

@@ -251,14 +251,20 @@ def plot_propagation(ipj):
     pn1 = ipj.planetary_flyby[0].planetary_node
     pn2 = ipj.planetary_rendezvous.planetary_node
 
+    print(pn1.epoch_entry)
+    print(pn1.epoch_exit)
+
     op = OrbitPlotter3D()
 
     op.set_attractor(Sun)
 
+    # Departure body position at launch
     ss0 = Orbit.from_body_ephem(pn0.body, time.Time(pn0.epoch_exit, scale='tdb'))
 
+    # Flyby body at entry to SOI
     ssl1 = Orbit.from_vectors(Sun, r=pn0.soi_exit_position_heliocentric, v=pn0.v_exit, epoch=time.Time(pn0.epoch_exit, scale='tdb'))
 
+    #
     tv1 = time_range(start=pn0.epoch_exit, end=pn1.epoch_entry)
 
     op.plot_trajectory(ssl1.sample(tv1)[-1])
