@@ -223,7 +223,6 @@ PlutoState =  "{:<50} \t {:<50} \t {:<50} \t {:<50} \t {:<50} \t {:<50}\n".forma
 save_other_cases(chromosome, PlutoState, data_titles, 'somedata.txt', bigfolder)
 
 #%%
-
 a=6992863713.300394
 b=1336628199.534705
 c=-1449298454.956082
