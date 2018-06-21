@@ -4,7 +4,7 @@ CHANGELOG
 
 - Removed uneccessary function definitions and imports
 - Changed grav_ass to have a new input (mode) allowing short results or a variable dump
-- Cleaned up and commented out the test case
+- Cleaned up and commented out the tests case
 
 @author: matth
 """

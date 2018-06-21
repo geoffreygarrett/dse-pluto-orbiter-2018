@@ -17,6 +17,7 @@ POPULATION_SIZE = 200
 SIMILARITY_FILTER = 0.75
 # ELITE_QUANTITY = 1.0
 CROSSOVER_THRESHOLD = 0.4
+from pprint import pprint
 
 FIRST_LEG_LIMIT_UPPER = 6000
 LAST_LEG_LIMIT_UPPER = 6000
@@ -161,8 +162,8 @@ class Chromosome(object):
                           'durations': _durations}
 
         _body_list = ['earth'] + _body_list + ['pluto']
-
-        return _raw_itinerary, _body_list
+        _raw_itinerary['planetary_nodes'] = _body_list
+        return _raw_itinerary
 
     def __init__(self, _unary_schema, _total_schema):
         self._unary_schema = _unary_schema
@@ -429,19 +430,16 @@ class EvolutionaryAlgorithim(object):
 if __name__ == '__main__':
     tt = TrajectoryTool()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 0
-    """
-    -0.5 1464 50697 00000 7359
-    Gen: 606             Fitness: -0.04       Chromosome: 8841 61111 00000 7636
+    TO_DO = 2
 
-    """
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
     # 0.98 2247 50699 20963 6999
     # - 1.37 8241 50411 61476 6857
     # 2.46 1847 50549 00000 8199
     # 0.69 2257 50698 20954 6998
-    INSPECT = '1847 50549 00000 8197'
+    INSPECT = '1057 50756 00000 7998'
+    INSPECT = '1449 50662 00000 7999'
 
     # chromosome singleton setup.
     _unary_schema = list('123456789')
@@ -455,8 +453,15 @@ if __name__ == '__main__':
 
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
-        results = tt.stationary_process_itinerary(raw, bodyl, mode='full')
-        print([results[k]['dv'] for k in range(len(results))])
+        results = tt.stationary_process_itinerary(raw, bodyl, mode='vector_evaluation')
+        pprint(results)
+        # print(sum(results[i]['dv'] for i in range(len(results))))
+        vc = np.sqrt(Earth.k/(6378*u.km + 180*u.km))
+        v_inf2 = ((np.linalg.norm(results[0]['v']['d']-results[0]['v']['p'])) * u.km / u.s)
+        print(v_inf2)
+
+        ans = vc*(np.sqrt(2+(v_inf2/vc)**2)-1)
+        print('here fab: ', ans.to(u.km/u.s))
 
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.
@@ -481,25 +486,6 @@ if __name__ == '__main__':
                 print('bye!')
                 EvolutionaryAlgorithim.save_generation(Population)
                 raise
-            # except:
-            # report error and proceed
-            # if count % 5 == 0:
-            #     print(Population.current_generation)
 
     if to_do[TO_DO] is 'other':
         print(fitness_function(Chromosome, '1449 50662 00000 7999', tt))
-        # z1, z2 = Chromosome.crossover('1449 50662 00000 7999', '0000 00000 00000 0000')
-        # print(Chromosome.similarity(z1,z2))
-        # print(difflib.SequenceMatcher(a=z1,b=z2).ratio())
-        # print(z1)
-        # print(z2)
-        # X1 = [pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_{}'.format(i)))['Fitness'].tolist()[0] for i in range(124)]
-        # # X2 = [pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_{}'.format(i)))['Chromosome'].tolist()[0].split(' ')[0] for i in range(124)]
-        # X2 = np.arange(0,124)
-        # x = pd.DataFrame.from_csv(os.path.join(DIR_GA,'generations_0000_test','gen_70'))
-        # X = x['Chromosome'].tolist()
-        # X = [int(i.split(' ')[0]) for i in X]
-        # # plt.plot(X, 15-np.array(x['Fitness'].tolist()))
-        # plt.plot(X2,X1)
-        # plt.show()
-
