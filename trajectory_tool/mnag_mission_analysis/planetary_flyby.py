@@ -92,7 +92,7 @@ class PlanetaryFlyby(object):
 
     @refined_dataframe.setter
     def refined_dataframe(self, arg: flyby_refined):
-        self._refined_dataframe = refined_flyby_df(arg, unit=False)
+        self._refined_dataframe = refined_flyby_df(arg, unit=True)
 
     @state.setter
     def state(self, arg):

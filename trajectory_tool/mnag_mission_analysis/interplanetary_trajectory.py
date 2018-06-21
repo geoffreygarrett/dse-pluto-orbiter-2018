@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from poliastro import iod
 from tabulate import tabulate
 import pandas as pd
+plotly.tools.set_credentials_file(username='Jones1311', api_key='FmmzPrMs3Xo3JRqW3Fpg')
 
 
 class InterplanetaryTrajectory(object):
@@ -100,8 +101,6 @@ class InterplanetaryTrajectory(object):
             plot_propagation(self)
 
 
-
-
 if __name__ == '__main__':
     __itinerary = {'id': 1,
                    'planetary_nodes': ['earth', 'jupiter', 'pluto'],
@@ -119,12 +118,12 @@ if __name__ == '__main__':
     ejp.planetary_flyby[0].guess_powered_gravity_assist(ejp.planetary_flyby[0].planetary_node.v_entry,
                                                         ejp.planetary_flyby[0].planetary_node.v_exit)
 
-    with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 10000):
+    with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 300):
         np.set_printoptions(precision=3)
 
         # print(tabulate(ejp.planetary_flyby[0].basic_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
         # print(tabulate(ejp.planetary_flyby[0].guess_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
-        print(tabulate(ejp.planetary_flyby[0].refined_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
+        print(ejp.planetary_flyby[0].refined_dataframe)
 
         ejp.plot3D(interplanetary=True)
 
