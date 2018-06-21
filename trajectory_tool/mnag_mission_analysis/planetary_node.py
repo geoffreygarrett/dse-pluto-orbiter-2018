@@ -111,6 +111,20 @@ class PlanetaryNode(object):
             return self._orbit_object_entry_epoch
 
     @property
+    def v_planet_i(self):
+        if self._orbit_object_entry_epoch:
+            return self._orbit_object_entry_epoch.state.v
+        else:
+            return self._orbit_object_periapsis_epoch.state.v
+
+    @property
+    def v_planet_f(self):
+        if self._orbit_object_entry_epoch:
+            return self._orbit_object_exit_epoch.state.v
+        else:
+            return self._orbit_object_periapsis_epoch.state.v
+
+    @property
     def orbit_object_exit_epoch(self):
         if self._orbit_object_exit_epoch is None:
             return self._orbit_object_periapsis_epoch

@@ -7,6 +7,7 @@ from poliastro.twobody import Orbit
 from astropy import time
 from .data_structures import *
 import pandas as pd
+from trajectory_tool.genetic_algorithim_analysis.genetic_algorithim import Chromosome
 
 
 class PlanetaryFlyby(object):
@@ -26,6 +27,7 @@ class PlanetaryFlyby(object):
         self._basic_dataframe = None
         self._guess_dataframe = None
         self._refined_dataframe = None
+        self.count = 0
 
     def __repr__(self):
         return str(self._body) + ' Planetary Flyby | Periapsis epoch: ' + str(self._epoch_periapsis)
@@ -66,6 +68,7 @@ class PlanetaryFlyby(object):
     @refined_attributes.setter
     def refined_attributes(self, arg: flyby_refined):
         self.refined_dataframe = arg
+        self._refined_attributes = arg
 
     @property
     def basic_dataframe(self):
@@ -129,27 +132,43 @@ class PlanetaryFlyby(object):
     def basic_powered_gravity_assist(self, v_i, v_f):
         self.basic_attributes = self._basic_powered_gravity_assist(v_i, v_f)
 
-    def guess_powered_gravity_assist(self, v_i, v_f):
+    def _guess_powered_gravity_assist(self, v_i, v_f):
         if self.state is 'checked':
             pass
         else:
             self.check_gravity_assist(v_i, v_f)
-        print(guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node))
-        self.guess_attributes = guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
+        # print(guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node))
+        return guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
+
+    def guess_powered_gravity_assist(self, v_i, v_f):
+        self.guess_attributes = self._guess_powered_gravity_assist(v_i, v_f)
 
     def refine_powered_gravity_assist(self, v_i, v_f):
         if self.state is 'checked':
             pass
         else:
             self.check_gravity_assist(v_i, v_f)
-        if self.guess_attributes is None:
-            self._guess_attributes = guess_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node)
-        # self._refined_attributes = refine_flyby(self._basic_powered_gravity_assist(v_i, v_f), self.planetary_node,
-        #                                         self.refined_attributes)
 
-        self._vp_i, self._vp_f, self._raan, self._aop, self._inc, self._t_i, self._t_f, self._ecc_i, self._ecc_f, \
-        self.planetary_node.soi_entry_position_body_ecliptic, self.planetary_node.soi_exit_position_body_ecliptic \
-            = \
-            pga_scalar_2_vector(self._v_inf_i, self._v_inf_f, self._vp_i, self._vp_f, self._sma_i, self._sma_f,
-                                self._ecc_i, self._ecc_f, self._rp, self._body,
-                                self.planetary_node.soi_periapsis_magnitude, self._epoch_periapsis)
+        self.refined_attributes = refine_flyby(self._base_gravity_assist(v_i, v_f), self.planetary_node)
+
+        v_planet_i_old = self.planetary_node.v_planet_i
+        v_planet_f_old = self.planetary_node.v_planet_f
+
+        self.planetary_node.epoch_entry = self.planetary_node.epoch_periapsis + timedelta(seconds=self._refined_attributes.t_i)
+        self.planetary_node.epoch_exit = self.planetary_node.epoch_periapsis + timedelta(seconds=self._refined_attributes.t_f)
+
+        self._refined_attributes.error_v = np.linalg.norm(self.planetary_node.v_planet_i.to(u.km/u.s) - v_planet_i_old.to(u.km/u.s)) + \
+                                           np.linalg.norm(self.planetary_node.v_planet_f.to(u.km/u.s) - v_planet_f_old.to(u.km/u.s))
+
+        self._refined_attributes.error_p = np.linalg.norm(self.planetary_node.soi_entry_position_body_ecliptic - self._refined_attributes.r_entry) + \
+                                           np.linalg.norm(self.planetary_node.soi_exit_position_body_ecliptic - self._refined_attributes.r_exit)
+
+        self.planetary_node.soi_entry_position_body_ecliptic = self._refined_attributes.r_entry
+        self.planetary_node.soi_exit_position_body_ecliptic = self._refined_attributes.r_exit
+
+
+
+
+
+
+

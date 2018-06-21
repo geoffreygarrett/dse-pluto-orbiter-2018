@@ -162,8 +162,8 @@ class Chromosome(object):
                           'durations': _durations}
 
         _body_list = ['earth'] + _body_list + ['pluto']
-
-        return _raw_itinerary, _body_list
+        _raw_itinerary['planetary_nodes'] = _body_list
+        return _raw_itinerary
 
     def __init__(self, _unary_schema, _total_schema):
         self._unary_schema = _unary_schema

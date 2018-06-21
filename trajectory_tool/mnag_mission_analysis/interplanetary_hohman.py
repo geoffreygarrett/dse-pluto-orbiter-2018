@@ -59,32 +59,38 @@ while True:
 
     # t_wait_list.append(t_wait(r1, r2).value)
     # dv_list.append(delta_v(r1,r2))
-plt.grid(b=False, which='major', color='0.7', linestyle='--')
-font = {'family' : 'normal',
-        'size'   : 20,
-        'serif': 'Times New Roman'}
-
-matplotlib.rc('font', **font)
-
-t_wait_ = np.array(t_wait_list)
-# plt.style.use("seaborn")
-plt.subplot(121)
-plt.grid(b=False, which='major', color='0.7', linestyle='--')
-
-plt.xlabel('Launch date [year]')
-plt.ylabel('Time of flight [year]')
-plt.plot(date_list[1:], t_wait_)
-plt.subplot(122)
+# plt.grid(b=False, which='major', color='0.7', linestyle='--')
+# font = {'family' : 'normal',
+#         'size'   : 20,
+#         'serif': 'Times New Roman'}
+#
+# matplotlib.rc('font', **font)
+#
+# t_wait_ = np.array(t_wait_list)
+# # plt.style.use("seaborn")
+# plt.subplot(121)
+# plt.grid(b=False, which='major', color='0.7', linestyle='--')
+#
+# plt.xlabel('Launch date [year]')
+# plt.ylabel('Time of flight [year]')
+# plt.plot(date_list[1:], t_wait_)
+# plt.subplot(122)
+# # plt.tight_layout()
+# plt.xlabel('Launch date [year]')
+# plt.grid(b=False, which='major', color='0.7', linestyle='--')
+#
+# plt.ylabel('$\Delta{V}$ [km/s]')
+# plt.plot(date_list[1:], dv_list)
+# plt.rcParams["font.family"] = "serif"
+# plt.rcParams["xtick.labelsize"] = 16
+# plt.rcParams["ytick.labelsize"] = 16
 # plt.tight_layout()
-plt.xlabel('Launch date [year]')
-plt.grid(b=False, which='major', color='0.7', linestyle='--')
+# plt.show()
 
-plt.ylabel('$\Delta{V}$ [km/s]')
-plt.plot(date_list[1:], dv_list)
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["xtick.labelsize"] = 16
-plt.rcParams["ytick.labelsize"] = 16
-plt.tight_layout()
+def x(y,b,a):
+    return np.sqrt((1+(np.square(y)/np.square(b)))*np.square(a))
+
+y = np.linspace(-10, 10, 100)
+plt.plot(-x(y, 2, -2), y)
 plt.show()
-
 
