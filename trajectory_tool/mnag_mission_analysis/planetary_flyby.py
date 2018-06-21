@@ -88,7 +88,7 @@ class PlanetaryFlyby(object):
 
     @guess_dataframe.setter
     def guess_dataframe(self, arg: flyby_guess):
-        self._guess_dataframe = guess_flyby_df(arg, unit=False)
+        self._guess_dataframe = guess_flyby_df(arg, unit=True)
 
     @refined_dataframe.setter
     def refined_dataframe(self, arg: flyby_refined):
@@ -102,12 +102,12 @@ class PlanetaryFlyby(object):
         plot_planetary_flyby(self)
 
     def _base_gravity_assist(self, v_i, v_f):
-        v_planet_i = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_entry,
-                                                                               scale='tdb')).state.v
-        v_planet_f = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_exit,
-                                                                               scale='tdb')).state.v
-        v_inf_i = v_i - v_planet_i
-        v_inf_f = v_f - v_planet_f
+        # v_planet_i = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_entry,
+        #                                                                        scale='tdb')).state.v
+        # v_planet_f = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_exit,
+        #                                                                        scale='tdb')).state.v
+        v_inf_i = v_i - self.planetary_node.v_planet_i
+        v_inf_f = v_f - self.planetary_node.v_planet_f
         a_req = angle_between(v_inf_i, v_inf_f)
         a_max = alpha(v_inf_i, v_inf_f, self.planetary_node.periapsis_minimum, self.planetary_node.body.k)
         try:
@@ -116,7 +116,7 @@ class PlanetaryFlyby(object):
             raise NotImplementedError("Gravity assist bending angle required (α_req) exceeds possible bending angle "
                                       "(α_max)\nwith a single impulse at periapsis. Multiple impulses are not "
                                       "implemented.\n{} > {}".format(a_req, a_max))
-        return v_i, v_f, v_planet_i, v_planet_f, v_inf_i, v_inf_f, a_req
+        return v_i, v_f, self.planetary_node.v_planet_i, self.planetary_node.v_planet_f, v_inf_i, v_inf_f, a_req
 
     def check_gravity_assist(self, v_i, v_f):
         self.state = 'checked'
