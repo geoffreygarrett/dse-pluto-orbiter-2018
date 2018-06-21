@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from poliastro import iod
 from tabulate import tabulate
 import pandas as pd
-plotly.tools.set_credentials_file(username='Jones1311', api_key='FmmzPrMs3Xo3JRqW3Fpg')
 
 
 class InterplanetaryTrajectory(object):
