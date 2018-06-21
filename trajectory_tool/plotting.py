@@ -7,7 +7,6 @@ from poliastro.plotting import OrbitPlotter, OrbitPlotter3D
 from poliastro.twobody import Orbit
 from copy import copy
 from astropy import time
-
 import matplotlib.pyplot as plt
 
 
