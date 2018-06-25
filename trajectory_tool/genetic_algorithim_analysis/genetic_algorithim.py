@@ -2,6 +2,7 @@ from random import randint, choice, uniform, random
 from datetime import datetime
 from trajectory_tool.core2 import *
 from trajectory_tool.genetic_algorithim_analysis import DIR_GA
+from trajectory_tool.mnag_mission_analysis.interplanetary_trajectory import InterplanetaryTrajectory
 import scipy.stats as ss
 import os
 import numpy as np
@@ -13,7 +14,7 @@ import _thread
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
 MUTATION_RATE = 0.3
-POPULATION_SIZE = 200
+POPULATION_SIZE = 100
 SIMILARITY_FILTER = 0.75
 # ELITE_QUANTITY = 1.0
 CROSSOVER_THRESHOLD = 0.4
@@ -32,18 +33,28 @@ planet_mapping = {'1': Mercury,
                   '8': Neptune,
                   '9': Pluto}
 
+CROSSOVER_METHOD = 'old'
+
+# pd.set_option('display.height', 1000)
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 # Here is the definition of the fitness function.
-def fitness_function(chromosome_singleton, chromosome, tt):
+def fitness_function(chromosome_singleton, chromosome, ft=None):
     assert chromosome_singleton.unary_schema == list('123456789')
     assert chromosome_singleton.total_schema == '0000 00000 00000 0000'
 
-    _raw_itinerary, _body_list = chromosome_singleton.mapper(chromosome)
+    _raw_itinerary = chromosome_singleton.mapper(chromosome)
     _total_dur = sum(_raw_itinerary['durations'])
     try:
-        results = tt.stationary_process_itinerary(_raw_itinerary, _body_list, mode='full', verbose=False)
-        delta_v_legs = [results[i]['dv'] for i in range(len(results))]
-        delta_v = sum(delta_v_legs)
+        tt = InterplanetaryTrajectory()
+        tt.process_itinerary(_raw_itinerary)
+        tt.basic_analysis()
+        # attributes = tt.basic_attributes
+        # results = tt.stationary_process_itinerary(_raw_itinerary, _body_list, mode='scalar_evaluation', verbose=False)
+        # delta_v_legs = [results[i]['dv'] for i in range(len(results))]
+        delta_v = tt.temp_dv
 
         if list(chromosome.split(' ')[1])[0] is '3':
             earth_penalty = 1000
@@ -165,10 +176,37 @@ class Chromosome(object):
         _raw_itinerary['planetary_nodes'] = _body_list
         return _raw_itinerary
 
-    def __init__(self, _unary_schema, _total_schema):
+    @staticmethod
+    def mapper_old(chromosome):
+        sequences = chromosome.split(' ')
+
+        assists = list(filter(lambda a: a != '00000', sequences[1:-1]))
+
+        _id = chromosome
+        _launch_day = START_EPOCH + datetime.timedelta(days=int(sequences[0]))
+        _durations = []
+        _body_list = []
+
+        for assist in assists:
+            planet = planet_mapping[assist[0]].__str__().split(' ')[0].lower()
+            duration = float(assist[1:]) / 365
+            _durations.append(duration)
+            _body_list.append(planet)
+
+        _durations = _durations + [float(sequences[-1]) / 365]
+
+        _raw_itinerary = {'id': _id,
+                          'launch_date': _launch_day,
+                          'durations': _durations}
+
+        _body_list = ['earth'] + _body_list + ['pluto']
+        # _raw_itinerary['planetary_nodes'] = _body_list
+        return _raw_itinerary, _body_list
+
+    def __init__(self, _unary_schema, _total_schema, tt):
         self._unary_schema = _unary_schema
         self._total_schema = _total_schema
-        self._tt = TrajectoryTool()
+        self._tt = tt
 
     # @lru_cache(maxsize=500)
     def fitness(self, _chromosome, _fitness_function, limit=None):
@@ -297,7 +335,7 @@ class Population(object):
 
         # self._current_generation = self._genesis_generation
 
-        self._current_generation = pd.DataFrame(columns=['Fitness', 'Chromosome'])
+        self._current_generation = pd.DataFrame(columns=['Fitness', 'Chromosome', 'Fitness_ratio', 'Fitness_cum'])
         self._current_generation['Chromosome'] = self._genesis_generation
         self._current_generation['Fitness'] = self.current_generation_fitness
         self._current_generation = self._current_generation.nlargest(_population_size, columns='Fitness').reset_index(drop=True)
@@ -316,20 +354,66 @@ class Population(object):
         df_chromosomes['Chromosome'] = list_chromosomes
         self._current_generation.append(df_chromosomes)
 
+    def replace_with(self, list_chromosomes):
+        list_chromosomes_fitness = self.groups_fitness(list_chromosomes)
+        df_chromosomes = pd.DataFrame()
+        df_chromosomes['Chromosome'] = list_chromosomes
+        df_chromosomes['Fitness'] = list_chromosomes_fitness
+        self._current_generation = df_chromosomes
+        # self._current_generation = self.elite_class(self._population_size)
+
+    @staticmethod
+    def fitness_ratio(fitness_list):
+        offset_at_zero = np.array(fitness_list) - np.min(fitness_list)
+        generation_fitness_list = (1/np.max(offset_at_zero))*offset_at_zero
+        fitness_ratio_list = generation_fitness_list/np.sum(generation_fitness_list)*100
+        return fitness_ratio_list
+
     def refine(self):
-        self._current_generation = self._current_generation.drop_duplicates()
-        self._current_generation = self.elite_class(self._population_size)
-        self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
+        # self._current_generation = self._current_generation.drop_duplicates()
+        if CROSSOVER_METHOD is 'new':
+            self._current_generation = self.elite_class(self._population_size)
+            self._current_generation['Fitness_ratio'] = self.fitness_ratio(self._current_generation['Fitness'])
+            self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
+        # self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
+        else:
+            self._current_generation = self._current_generation.drop_duplicates()
+            self._current_generation = self.elite_class(self._population_size)
+            self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
+
         return self._current_generation
+
+    @staticmethod
+    def random_ratio(df):
+        return df[df['Fitness_cum'] >= uniform(0, 100)]['Chromosome'].tolist()[0]
 
     def crossover(self):
         crossover_threshold = CROSSOVER_THRESHOLD
-        chosen_breeders = [self._current_generation['Chromosome'].tolist()[i]
-                           for i in range(int(crossover_threshold*self._population_size))]
-        random_mates = [choice(self._current_generation['Chromosome']) for _ in range(len(chosen_breeders))]
+        # chosen_breeder_qty = int(crossover_threshold * self._population_size)
+
+        fitness_ratio = self.fitness_ratio(self._current_generation['Fitness'])
+        self._current_generation['Fitness_ratio'] = pd.Series(np.array(fitness_ratio),
+                                                              index=self._current_generation.index)
+        self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
+
+        chosen_breeders = [self.random_ratio(self._current_generation) for _ in range(int(0.5*self._population_size))]
+        random_mates = [self.random_ratio(self._current_generation) for _ in range(int(0.5*self._population_size))]
+
+        if CROSSOVER_METHOD is 'new':
+            fitness_ratio = self.fitness_ratio(self._current_generation['Fitness'])
+            self._current_generation['Fitness_ratio'] = pd.Series(np.array(fitness_ratio),
+                                                                  index=self._current_generation.index)
+            self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
+
+        else:
+            chosen_breeders = [self._current_generation['Chromosome'].tolist()[i]
+                               for i in range(int(crossover_threshold*self._population_size))]
+            random_mates = [choice(self._current_generation['Chromosome']) for _ in range(len(chosen_breeders))]
+
         pairs = zip(chosen_breeders, random_mates)
         children_chromosomes_zip = [self._chromosome.crossover(ch1, ch2) for ch1, ch2 in pairs]
         children_chromosomes = list([*zip(*children_chromosomes_zip)])[0]
+
         return children_chromosomes
 
     def mutate(self):
@@ -356,7 +440,7 @@ class Population(object):
 
     @property
     def fittest(self):
-        return self.elite_class(1).values[0]
+        return self._current_generation.iloc[[0]]
 
     @property
     def genesis_generation(self):
@@ -385,8 +469,12 @@ class EvolutionaryAlgorithim(object):
 
     @staticmethod
     def _crossover_population(population):
-        children = population.crossover()
-        population.add(children)
+        if CROSSOVER_METHOD is 'new':
+            children = population.crossover()
+            population.replace_with(children)
+        else:
+            children = population.crossover()
+            population.add(children)
         return population
 
     @staticmethod
@@ -429,8 +517,9 @@ class EvolutionaryAlgorithim(object):
 
 if __name__ == '__main__':
     tt = TrajectoryTool()
+    tt2 = InterplanetaryTrajectory()
     to_do = ['evolve', 'plot', 'stats', 'other']
-    TO_DO = 2
+    TO_DO = 0
 
     # 1.25 2642 50549 30658 7364
     # 0.37 2647 50519 21248 6931
@@ -445,7 +534,8 @@ if __name__ == '__main__':
     _unary_schema = list('123456789')
     _total_schema = '0000 00000 00000 0000'
     Chromosome = Chromosome(_unary_schema=_unary_schema,
-                            _total_schema=_total_schema)
+                            _total_schema=_total_schema,
+                            tt = tt2)
 
     if to_do[TO_DO] is 'plot':
         raw, bodyl = Chromosome.mapper(INSPECT)
@@ -454,7 +544,6 @@ if __name__ == '__main__':
     if to_do[TO_DO] is 'stats':
         raw, bodyl = Chromosome.mapper(INSPECT)
         results = tt.stationary_process_itinerary(raw, bodyl, mode='vector_evaluation')
-        pprint(results)
         # print(sum(results[i]['dv'] for i in range(len(results))))
         vc = np.sqrt(Earth.k/(6378*u.km + 180*u.km))
         v_inf2 = ((np.linalg.norm(results[0]['v']['d']-results[0]['v']['p'])) * u.km / u.s)
@@ -466,17 +555,22 @@ if __name__ == '__main__':
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.
         _population_size = POPULATION_SIZE
-        Population = Population(Chromosome, _population_size=_population_size, assists='any')
+        Population = Population(Chromosome, _population_size=_population_size, assists='1')
         count = 0
-        while Population.fittest[0] < 5:
+        gen = []
+        fitness = []
+        title = 't4_P{}_M{}'.format(POPULATION_SIZE, MUTATION_RATE)
+        while True:
+            # Population.fittest < 5:
             try:
-                result, top = Population.fittest[0], Population.fittest[1]
+                result, top = Population.fittest['Fitness'][0], Population.fittest['Chromosome']
                 if result >= 2.4:
-                    EvolutionaryAlgorithim.save_generation(Population, 't2')
+                    EvolutionaryAlgorithim.save_generation(Population, title)
 
                 print('Gen: {}'.format(Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
                       'Chromosome: {}'.format(top))
-
+                gen.append(Population._generations)
+                fitness.append(result)
                 EvolutionaryAlgorithim.evolve(Population)
 
                 Population.refine()
@@ -485,7 +579,40 @@ if __name__ == '__main__':
             except (KeyboardInterrupt, SystemExit):
                 print('bye!')
                 EvolutionaryAlgorithim.save_generation(Population)
+                np.save(title+'_gen', np.array(gen))
+                np.save(title+'_fitness', np.array(fitness))
                 raise
 
     if to_do[TO_DO] is 'other':
-        print(fitness_function(Chromosome, '1449 50662 00000 7999', tt))
+        dir =   '/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/'
+        plot_filenames = ['t3_P100_M0.05', 't3_P100_M0.1','t3_P100_M0.15', 't3_P100_M0.2', 't3_P100_M0.3']
+
+        for fn in plot_filenames:
+            plt.plot(np.load(dir+fn+'_gen.npy')[0:100],np.load(dir+fn+'_fitness.npy')[0:100], label='P={}, M={}'.format(fn.split('_')[1].replace('P',''), fn.split('_')[2].replace('M','')))
+
+        plt.legend()
+        plt.show()
+
+        # fitness1 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_fitness.npy')
+        # gen1 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_gen.npy')
+        #
+        # fitness2 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.1_fitness.npy')[0:150]
+        # gen2 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.1_gen.npy')[0:150]
+        #
+        # fitness3 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.3_fitness.npy')[0:150]
+        # gen3 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.3_gen.npy')[0:150]
+        #
+        # fitness4 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.05_fitness.npy')[0:150]
+        # gen4 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.05_gen.npy')[0:150]
+        #
+        # fitness5 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P200_M0.1_fitness.npy')[0:150]
+        # gen5 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P200_M0.1_gen.npy')[0:150]
+        #
+        #
+        # plt.plot(np.sqrt(gen1), fitness1, label='P=200, M=0.1')
+        # plt.plot(np.sqrt(gen2), fitness2, label='P=100, M=0.1')
+        # plt.plot(np.sqrt(gen3), fitness3, label='P=100, M=0.3')
+        # plt.plot(np.sqrt(gen4), fitness4, label='P=100, M=0.05')
+        # plt.plot(np.sqrt(gen5), fitness5, label='P=200, M=0.1')
+        # plt.legend()
+        # plt.show()

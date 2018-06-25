@@ -131,8 +131,26 @@ class PlanetaryNode(object):
         else:
             return self._orbit_object_exit_epoch
 
+    @staticmethod
+    def gcrs_2_icrs(P, epoch):
+        from astropy.coordinates import (
+            ICRS, GCRS,
+            CartesianRepresentation, CartesianDifferential
+        )
+        from poliastro.frames import HeliocentricEclipticJ2000
+        test = GCRS(
+            x = P[0], y = P[1], z=P[2],
+            representation=CartesianRepresentation,
+            obstime=epoch
+        )
+        ret = test.transform_to(ICRS)
+        ret.representation = CartesianRepresentation
+        return ret
+
     @property
     def soi_exit_position_heliocentric(self):
+        # print(self.gcrs_2_icrs(self.soi_exit_position_body_ecliptic, time.Time(self.epoch_exit, scale='tdb')))
+        # print(self.soi_exit_position_body_ecliptic)
         return self.orbit_object_exit_epoch.r + self.soi_exit_position_body_ecliptic
 
     @property

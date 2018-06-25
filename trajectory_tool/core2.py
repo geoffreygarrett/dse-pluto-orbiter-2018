@@ -326,36 +326,36 @@ class TrajectoryTool(object):
         # print('v_exit: ', v2)
         # print('[Pluto Arrival]')
         # print('epoch_arrival: ', e3)
-
-        print('#'*30)
-        print('ENTRY OF JUPITER SOI')
-        print('#' * 30)
-        print('[Jupiter Reference Frame J2000]')
-        print('   epoch_entry: ', gravass_p.epoch_entry)
-        print('   r_soi_entry: ', gravass_p.r_entry)
-        print('   v_inf_entry: ', gravass_p.v_inf_i_vec)
-        print('   r_p_dv_prograde: ',gravass_p.r_p_dv_mag)
-        print('[Heliocentric Reference Frame]')
-        print('   epoch_entry: ', gravass_p.epoch_entry)
-        print('   r_soi_entry: ', gravass_p.r_entry + ssb_entry.r)
-        print('   v_entry: ', v1)
-        print('   r_p_dv_prograde: ',gravass_p.r_p_dv_mag)
+        #
+        # print('#'*30)
+        # print('ENTRY OF JUPITER SOI')
+        # print('#' * 30)
+        # print('[Jupiter Reference Frame J2000]')
+        # print('   epoch_entry: ', gravass_p.epoch_entry)
+        # print('   r_soi_entry: ', gravass_p.r_entry)
+        # print('   v_inf_entry: ', gravass_p.v_inf_i_vec)
+        # print('   r_p_dv_prograde: ',gravass_p.r_p_dv_mag)
+        # print('[Heliocentric Reference Frame]')
+        # print('   epoch_entry: ', gravass_p.epoch_entry)
+        # print('   r_soi_entry: ', gravass_p.r_entry + ssb_entry.r)
+        # print('   v_entry: ', v1)
+        # print('   r_p_dv_prograde: ',gravass_p.r_p_dv_mag)
         # print('r_p :', gravass_p.)
 
-        ss_trajec = Orbit.from_vectors(Sun, gravass_p.r_exit + ssb_exit.r, gravass_p.v_inf_f_vec + gravass_p.v_planet_f_vec, epoch=gravass_p.epoch_exit).propagate(e3-gravass_p.epoch_exit)
-        ss_pluto = Orbit.from_body_ephem(Pluto, e3)
-
-        print(ss_pluto.r - ss_trajec.r)
-        print(np.linalg.norm(ss_pluto.r - ss_trajec.r))
-
-        print(np.linalg.norm(gravass_p.r_entry))
-        print(np.linalg.norm(gravass_p.r_exit))
-
-        op.plot(ss_trajec)
-
-        # op.plot(Orbit.from_vectors(Sun, gravass_p.r_exit + ssb_exit.r, v2, epoch=gravass_p.epoch_exit).propagate(e3-gravass_p.epoch_exit))
-
-        op.plot(ss_pluto)
+        # ss_trajec = Orbit.from_vectors(Sun, gravass_p.r_exit + ssb_exit.r, gravass_p.v_inf_f_vec + gravass_p.v_planet_f_vec, epoch=gravass_p.epoch_exit).propagate(e3-gravass_p.epoch_exit)
+        # ss_pluto = Orbit.from_body_ephem(Pluto, e3)
+        #
+        # print(ss_pluto.r - ss_trajec.r)
+        # print(np.linalg.norm(ss_pluto.r - ss_trajec.r))
+        #
+        # print(np.linalg.norm(gravass_p.r_entry))
+        # print(np.linalg.norm(gravass_p.r_exit))
+        #
+        # op.plot(ss_trajec)
+        #
+        # # op.plot(Orbit.from_vectors(Sun, gravass_p.r_exit + ssb_exit.r, v2, epoch=gravass_p.epoch_exit).propagate(e3-gravass_p.epoch_exit))
+        #
+        # op.plot(ss_pluto)
         #
         # layout = go.Layout(title="test", width=800, height=800)
         # fig = go.Figure(data=op._data, layout=layout)
@@ -363,7 +363,7 @@ class TrajectoryTool(object):
 
         # plotly.plotly.plot(fig)
 
-        plt.show()
+        # plt.show()
 
         return gravass_p
 

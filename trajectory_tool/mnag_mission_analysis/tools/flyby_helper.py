@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from sympy import Eq, var, solve
 import sympy
 
-
 def alpha(v_inf_i, v_inf_f, r_p, mu_body):
     return np.arcsin(
         1 / (1 + (r_p * np.square(np.linalg.norm(v_inf_i.to(u.km / u.s)))) * (u.km / u.s) ** 2 / mu_body)) + \
@@ -516,6 +515,9 @@ eq_hyperbola = Eq(np.square(var('x'))/np.square(var('a')) - np.square(var('y'))/
 
 
 def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p, body, rsoi, planetary_node):
+    I = np.array([1, 0, 0])
+    J = np.array([0, 1, 0])
+    K = np.array([0, 0, 1])
 
     mu = body.k.to(u.km ** 3 / u.s ** 2).value
     e_i = np.linalg.norm(e_i)
@@ -524,9 +526,9 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
     n_vec_orbital = unit_vector(np.cross(v_inf_i, v_inf_f))
 
     # Rotation about orbital plane normal vector for v_p_unit_vec with angle of d_i.
-    d_i = 2 * np.arcsin(1 / np.linalg.norm(e_i))
+    alpha_i = np.arcsin(1 / np.linalg.norm(e_i))
     v_p_unit_vec = unit_vector(np.dot(rotation_matrix(axis=n_vec_orbital,
-                                                      theta=d_i), v_inf_i))
+                                                      theta=alpha_i), v_inf_i))
 
     # v_p_i_vec and v_p_f_vec
     v_p_i_vec = v_p_i * v_p_unit_vec
@@ -542,29 +544,35 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
     e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
+    print(np.linalg.norm(e_i_vec), e_i)
+    assert abs(np.linalg.norm(e_i_vec) - e_i)/e_i <= 0.001
+
     e_f_vec = np.cross(v_p_f_vec, np.cross(r_p_vec, v_p_f_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
+    print(np.linalg.norm(e_f_vec), e_f)
+    assert abs(np.linalg.norm(e_f_vec) - e_f)/e_f <= 0.001
+
     # Classical orbit parameters
     inclination = np.arccos(
-        np.dot(np.array([0, 0, 1]), n_vec_orbital) / (np.linalg.norm(n_vec_orbital)))
+        np.dot(K, n_vec_orbital) / (np.linalg.norm(n_vec_orbital)))
 
-    n_vec = np.cross(np.array([0, 0, 1]), np.cross(r_p_vec, v_p_i_vec))
-    lan = np.arccos(np.dot(np.array([1, 0, 0]), n_vec) / (np.linalg.norm(n_vec) * 1))
+    n_vec = np.cross(K, np.cross(r_p_vec, v_p_i_vec))
+    lan = np.arccos(np.dot(I, n_vec) / (np.linalg.norm(n_vec) * 1))
 
     if n_vec[1] < 0:
         lan = 2 * np.pi - lan
 
     aop = np.arccos(np.dot(n_vec, e_i_vec) / np.linalg.norm(n_vec) / np.linalg.norm(e_i_vec))
 
-    if e_i_vec[-1] > 0:
+    if e_i_vec[-1] < 0:
         aop = 2 * np.pi - aop
 
     theta_inf_i = np.arccos(-1 / e_i)
     theta_inf_f = np.arccos(-1 / e_f)
 
-    theta_rsoi_i = _theta_rsoi(r_p, rsoi*1.1525, e_i)
-    theta_rsoi_f = _theta_rsoi(r_p, rsoi*1.1525, e_f)
+    theta_rsoi_i = _theta_rsoi(r_p, rsoi, e_i)
+    theta_rsoi_f = _theta_rsoi(r_p, rsoi, e_f)
 
     if n_vec_orbital[-1] > 0:
         theta_inf_i = -theta_inf_i
@@ -593,6 +601,7 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
                                   raan=lan * u.rad, argp=aop * u.rad, nu=0*u.rad, epoch=time.Time(planetary_node.epoch_periapsis,scale='tdb'))
 
     r_entry = r_entry.propagate(time.TimeDelta(tp_i*u.s)).r
+    print(np.linalg.norm(r_entry))
     r_exit = r_exit.propagate(time.TimeDelta(tp_f*u.s)).r
 
     return v_p_i_vec, v_p_f_vec, lan, aop, inclination, tp_i, tp_f, e_i_vec, e_f_vec, r_entry, r_exit

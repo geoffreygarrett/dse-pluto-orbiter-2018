@@ -7,7 +7,7 @@ from poliastro.twobody import Orbit
 from astropy import time
 from .data_structures import *
 import pandas as pd
-from trajectory_tool.genetic_algorithim_analysis.genetic_algorithim import Chromosome
+# from trajectory_tool.genetic_algorithim_analysis.genetic_algorithim import Chromosome
 
 
 class PlanetaryFlyby(object):
@@ -102,10 +102,8 @@ class PlanetaryFlyby(object):
         plot_planetary_flyby(self)
 
     def _base_gravity_assist(self, v_i, v_f):
-        # v_planet_i = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_entry,
-        #                                                                        scale='tdb')).state.v
-        # v_planet_f = Orbit.from_body_ephem(self.planetary_node.body, time.Time(self.planetary_node.epoch_exit,
-        #                                                                        scale='tdb')).state.v
+
+        # TODO: TRANSFORM V_INF_I TO GCRS
         v_inf_i = v_i - self.planetary_node.v_planet_i
         v_inf_f = v_f - self.planetary_node.v_planet_f
         a_req = angle_between(v_inf_i, v_inf_f)
