@@ -10,6 +10,7 @@ from copy import copy
 from astropy import time
 from poliastro.bodies import Sun
 from astropy.coordinates import solar_system_ephemeris, get_body_barycentric_posvel
+plotly.tools.set_credentials_file(username='Jones1311', api_key='NNv5qParz0xFWQt16nhS')
 
 
 def polytime_2_datetime(_time):
@@ -160,7 +161,7 @@ def plot_planetary_flyby(planetary_flyby, data_return=False):
 
 def fly_by_data_heliocentric(planetary_flyby):
     planetary_flyby = planetary_flyby
-    data = []
+
     body = planetary_flyby.planetary_node.body
     ss_i = Orbit.from_classical(attractor=body,
                                 a=planetary_flyby.refined_attributes.sma_i,
@@ -186,9 +187,6 @@ def fly_by_data_heliocentric(planetary_flyby):
 
     # Time frame arrays for entry and exit.
     tv_ent = time_range(epoch_entry_dt, periods=100, spacing=None, end=epoch_rp_dt)
-
-    tv_ent_f = time_range(epoch_rp_dt, periods=100, spacing=None,
-                          end=epoch_rp_dt + (epoch_rp_dt - epoch_entry_dt))
 
     tv_ext = time_range(epoch_rp_dt, periods=100, spacing=None, end=epoch_exit_dt)
 
@@ -219,8 +217,7 @@ def fly_by_data_heliocentric(planetary_flyby):
         mode='lines',
         line=dict(
             color='#1f77b4',
-            width=7,
-            dash="dash"
+            width=4,
         ),
         text='Entry hyperbole extended',
         projection=dict(
@@ -236,8 +233,7 @@ def fly_by_data_heliocentric(planetary_flyby):
         mode='lines',
         line=dict(
             color='#1f77b4',
-            width=7,
-            dash="dash"
+            width=4,
         ),
         text='Entry hyperbole extended',
         projection=dict(
@@ -255,20 +251,27 @@ def plot_propagation(ipj):
     pn1 = ipj.planetary_flyby[0].planetary_node
     pn2 = ipj.planetary_rendezvous.planetary_node
 
+    print(pn1.epoch_entry)
+    print(pn1.epoch_exit)
+
     op = OrbitPlotter3D()
 
     op.set_attractor(Sun)
 
+    # Departure body position at launch
     ss0 = Orbit.from_body_ephem(pn0.body, time.Time(pn0.epoch_exit, scale='tdb'))
 
+    # Flyby body at entry to SOI
     ssl1 = Orbit.from_vectors(Sun, r=pn0.soi_exit_position_heliocentric, v=pn0.v_exit, epoch=time.Time(pn0.epoch_exit, scale='tdb'))
 
+    #
     tv1 = time_range(start=pn0.epoch_exit, end=pn1.epoch_entry)
 
     op.plot_trajectory(ssl1.sample(tv1)[-1])
     op.plot(ss0)
 
     ss1i = Orbit.from_body_ephem(pn1.body, time.Time(pn1.epoch_entry, scale='tdb'))
+    ss1p = Orbit.from_body_ephem(pn1.body, time.Time(pn1.epoch_periapsis, scale='tdb'))
     ss1f = Orbit.from_body_ephem(pn1.body, time.Time(pn1.epoch_exit, scale='tdb'))
 
     ssl2 = Orbit.from_vectors(Sun, pn1.soi_exit_position_heliocentric, pn1.v_exit, time.Time(pn1.epoch_exit, scale='tdb'))
@@ -276,8 +279,9 @@ def plot_propagation(ipj):
     tv2 = time_range(start=pn1.epoch_exit, end=pn2.epoch_entry)
 
     op.plot_trajectory(ssl2.sample(tv2)[-1])
-    op.plot(ss1i)
-    op.plot(ss1f)
+    op.plot(ss1i, label='{} SOI Entry'.format(str(pn1.body).split(' ')[0]), color=0.2)
+    op.plot(ss1p, label='{} SOI Periapsis'.format(str(pn1.body).split(' ')[0]))
+    op.plot(ss1f, label='{} SOI Exit'.format(str(pn1.body).split(' ')[0]), color=0.2)
 
     ss2 = Orbit.from_body_ephem(pn2.body, time.Time(pn2.epoch_entry, scale='tdb'))
 
@@ -286,11 +290,12 @@ def plot_propagation(ipj):
     data = op._data
     data += trace_soi(pn1.soi_periapsis_magnitude.value, ss1i.r.value)
     data += trace_soi(pn1.soi_periapsis_magnitude.value, ss1f.r.value)
+    data += trace_soi(pn1.soi_periapsis_magnitude.value, ss1p.r.value)
     data += fly_by_data_heliocentric(ipj.planetary_flyby[0])
 
     layout = go.Layout(title="test", width=800, height=800)
     fig = go.Figure(data=op._data, layout=layout)
-    plotly.plotly.iplot(fig)
+    plotly.plotly.plot(fig)
 
 
 
