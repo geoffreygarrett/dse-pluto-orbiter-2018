@@ -53,12 +53,21 @@ for fname in fnames:
     TOI_DV, COI_DV = mag_data[0], mag_data[1]
     DV_tot = TOI_DV + COI_DV
     DVs = [TOI_DV, COI_DV, DV_tot]
-    data[fname[-6:-4]] = DVs
+    #print(fname[16:-4])
+    data[fname[16:-4]] = DVs
 
 transfer_dvs = data
 
 #Left = transfer case, right = Pluto-Charon Combo of cases
-transfer_case_dic = {'V2':'4-2', 'V3':'7-2', 'V4':'8-2', 'V5':'4-6', 'V6':'7-6', 'V7':'8-6'}
+transfer_case_dic = {'V2':'4-2',
+                     'V3':'7-2',
+                     'V4':'8-2',
+                     'V5':'4-6',
+                     'V6':'7-6',
+                     'V7':'8-6',
+                     'V8':'2-2',
+                     'V9':'3-2',
+                     'V10':'4-7'}
 
 pluto_months = 6
 charon_months = 6
@@ -90,7 +99,7 @@ best_case = allDVs['4-6']
 print(best_case)
 
 newdirec = 'C:\\Users\\matth\\AppData\\Local\\GMAT\\R2017a\\output\\Maintenance files\\Transfer'
-fname_save = os.path.join(newdirec, 'transfer_summary')
+fname_save = os.path.join(newdirec, 'transfer_summary.txt')
 with open(fname_save, 'w') as fp:
     fp.write(str(allDVs))
 
