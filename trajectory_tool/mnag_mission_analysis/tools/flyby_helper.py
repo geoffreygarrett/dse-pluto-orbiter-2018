@@ -539,18 +539,19 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
                                                       theta=-np.pi / 2), v_p_i_vec).value)
     r_p_vec = r_p * r_p_unit_vec
 
+    print('r_p_vec:')
+    print(r_p_vec)
+
     # FROM ORBITAL MECHANICS FOR ENGINEERS #################################################################
     # eccentricity vectors
     e_i_vec = np.cross(v_p_i_vec, np.cross(r_p_vec, v_p_i_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
-    print(np.linalg.norm(e_i_vec), e_i)
     assert abs(np.linalg.norm(e_i_vec) - e_i)/e_i <= 0.001
 
     e_f_vec = np.cross(v_p_f_vec, np.cross(r_p_vec, v_p_f_vec)) / \
               body.k.to(u.km ** 3 / u.s ** 2).value - r_p_unit_vec
 
-    print(np.linalg.norm(e_f_vec), e_f)
     assert abs(np.linalg.norm(e_f_vec) - e_f)/e_f <= 0.001
 
     # Classical orbit parameters
@@ -571,8 +572,34 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
     theta_inf_i = np.arccos(-1 / e_i)
     theta_inf_f = np.arccos(-1 / e_f)
 
-    theta_rsoi_i = _theta_rsoi(r_p, rsoi, e_i)
-    theta_rsoi_f = _theta_rsoi(r_p, rsoi, e_f)
+    # def f_t_i(adjustment):
+    #     th = _theta_rsoi(r_p, adjustment*rsoi, e_i)
+    #     # r_entry = Orbit.from_classical(attractor=body, a=a_i, ecc=e_i * u.one, inc=inclination * u.rad,
+    #     #                                raan=lan * u.rad, argp=aop * u.rad, nu=0*u.rad, epoch=time.Time(planetary_node.epoch_periapsis, scale='tdb'))
+    #     #
+    #
+    # def f_t_f(adjustment):
+    #     th = _theta_rsoi(r_p, adjustment*rsoi, e_f)
+    #
+
+
+    # r_exit = Orbit.from_classical(attractor=body, a=a_f, ecc=e_f * u.one, inc=inclination * u.rad,
+    #                               raan=lan * u.rad, argp=aop * u.rad, nu=0*u.rad, epoch=time.Time(planetary_node.epoch_periapsis,scale='tdb'))
+    #
+    # r_entry = r_entry.propagate(time.TimeDelta(tp_i*u.s)).r
+    # r_exit = r_exit.propagate(time.TimeDelta(tp_f*u.s)).r
+
+    # adj_i = optimize.newton(f_t_i, 0)
+    # adj_f = optimize.newton(f_t_f, 0)
+
+    theta_rsoi_i = _theta_rsoi(r_p, 1.051*rsoi, e_i)
+    theta_rsoi_f = _theta_rsoi(r_p, 1.05256*rsoi, e_f)
+
+    print('true_anom_entry')
+    print(theta_rsoi_i)
+
+    print('\ntrue_anom_exit')
+    print(theta_rsoi_f)
 
     if n_vec_orbital[-1] > 0:
         theta_inf_i = -theta_inf_i
@@ -601,8 +628,9 @@ def pga_scalar_2_vector(v_inf_i, v_inf_f, v_p_i, v_p_f, a_i, a_f, e_i, e_f, r_p,
                                   raan=lan * u.rad, argp=aop * u.rad, nu=0*u.rad, epoch=time.Time(planetary_node.epoch_periapsis,scale='tdb'))
 
     r_entry = r_entry.propagate(time.TimeDelta(tp_i*u.s)).r
-    print(np.linalg.norm(r_entry))
     r_exit = r_exit.propagate(time.TimeDelta(tp_f*u.s)).r
-
+    print(np.linalg.norm(r_exit))
+    print(np.linalg.norm(r_entry))
+    print(rsoi)
     return v_p_i_vec, v_p_f_vec, lan, aop, inclination, tp_i, tp_f, e_i_vec, e_f_vec, r_entry, r_exit
 
