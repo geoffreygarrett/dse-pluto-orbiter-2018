@@ -4,6 +4,7 @@ from trajectory_tool.core2 import *
 from trajectory_tool.genetic_algorithim_analysis import DIR_GA
 from trajectory_tool.mnag_mission_analysis.interplanetary_trajectory import InterplanetaryTrajectory
 import scipy.stats as ss
+import matplotlib
 import os
 import numpy as np
 from functools import lru_cache
@@ -13,12 +14,8 @@ import _thread
 
 LAST_LEG_DURATION_BIAS = 1.5
 START_EPOCH = datetime.datetime(2025, 1, 1, 0, 0, 0, 0)
-MUTATION_RATE = 0.3
-POPULATION_SIZE = 100
 SIMILARITY_FILTER = 0.75
-# ELITE_QUANTITY = 1.0
 CROSSOVER_THRESHOLD = 0.4
-from pprint import pprint
 
 FIRST_LEG_LIMIT_UPPER = 6000
 LAST_LEG_LIMIT_UPPER = 6000
@@ -40,6 +37,7 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
+
 # Here is the definition of the fitness function.
 def fitness_function(chromosome_singleton, chromosome, ft=None):
     assert chromosome_singleton.unary_schema == list('123456789')
@@ -51,9 +49,6 @@ def fitness_function(chromosome_singleton, chromosome, ft=None):
         tt = InterplanetaryTrajectory()
         tt.process_itinerary(_raw_itinerary)
         tt.basic_analysis()
-        # attributes = tt.basic_attributes
-        # results = tt.stationary_process_itinerary(_raw_itinerary, _body_list, mode='scalar_evaluation', verbose=False)
-        # delta_v_legs = [results[i]['dv'] for i in range(len(results))]
         delta_v = tt.temp_dv
 
         if list(chromosome.split(' ')[1])[0] is '3':
@@ -61,21 +56,6 @@ def fitness_function(chromosome_singleton, chromosome, ft=None):
 
         else:
             earth_penalty = 0
-
-        # Propulsion leg penalty total
-        propulsion_total_penalty = 8
-
-        # # First leg penalty
-        # if delta_v_legs[0] > FIRST_LEG_LIMIT_UPPER/1000.:
-        #     first_leg_penalty_factor = 3
-        # else:
-        #     first_leg_penalty_factor = 0
-        #
-        # # Last leg penalty
-        # if delta_v_legs[-1] > LAST_LEG_LIMIT_UPPER/1000.:
-        #     last_leg_penalty_factor = 1
-        # else:
-        #     last_leg_penalty_factor = 0
 
         if _total_dur >= 24:
             duration_penalty = 1000
@@ -87,18 +67,13 @@ def fitness_function(chromosome_singleton, chromosome, ft=None):
         delta_v = 200
         duration_penalty = 0
         earth_penalty = 0
-        last_leg_penalty_factor = 0
-        first_leg_penalty_factor = 0
-        propulsion_total_penalty = 0
-        delta_v_legs = [0]
-    # return 15.0 - delta_v - duration_penalty - propulsion_total_penalty * (last_leg_penalty_factor + first_leg_penalty_factor) - earth_penalty
     return 15.0 - delta_v - duration_penalty - earth_penalty
 
 
 class Chromosome(object):
 
     @staticmethod
-    def mutation(_chromosome):
+    def mutation(_chromosome, mutation_rate):
         sequences = _chromosome.split(' ')
         seqs = []
         for seq in sequences:
@@ -113,7 +88,7 @@ class Chromosome(object):
                 ##############################################
 
                 for i, gene in enumerate(seq):
-                    if random() <= MUTATION_RATE:
+                    if random() <= mutation_rate:
                         seq[i] = choice(_unary_schema)
                     else:
                         pass
@@ -121,7 +96,7 @@ class Chromosome(object):
 
             elif len(seq) is 4:    # Arrival/departure
                 for i, gene in enumerate(seq):
-                    if random() <= MUTATION_RATE:
+                    if random() <= mutation_rate:
                         seq[i] = choice(_unary_schema)
                     else:
                         pass
@@ -209,7 +184,7 @@ class Chromosome(object):
         self._tt = tt
 
     # @lru_cache(maxsize=500)
-    def fitness(self, _chromosome, _fitness_function, limit=None):
+    def fitness(self, _chromosome, _fitness_function):
         return fitness_function(self, _chromosome, self._tt)
 
     @property
@@ -225,7 +200,7 @@ class Chromosome(object):
         sequence2 = chromosome2.split(' ')
 
         array = [sequence1, sequence2]
-        transpose = [1,0]
+        transpose = [1, 0]
         idx_child1 = [randint(0,1) for _ in range(len(sequence1))]
         idx_child2 = [transpose[i] for i in idx_child1]
 
@@ -309,12 +284,11 @@ class Population(object):
                 similarity = 0
             else:
                 similarity = self._chromosome.similarity(unique, chromo)
-            count+=1
+            count += 1
             if similarity >= percentage_similarity:
-                # print('Unique: {}, Similarity: {:0.2f}, Dropping: {}'.format(unique, similarity, generation_df['Chromosome'][idx]))
                 self.add([self._chromosome.random_chromosome(self.random_durations(1))])
                 drop_idx.append(idx)
-            elif len(drop_idx)>=1:
+            elif len(drop_idx) >= 1:
                 idx_unique = idx
                 drop_idx = []
                 all_drop_idx.append(drop_idx)
@@ -322,7 +296,7 @@ class Population(object):
             generation_df.drop(generation_df.index[[drop_idx[0], drop_idx[-1]]], inplace=True)
         return generation_df.reset_index(drop=True)
 
-    def __init__(self, _chromosome, _population_size, assists='any'):
+    def __init__(self, _chromosome, _population_size, _mutation_rate, assists='any'):
         # chromosome singleton and schema format.
         self._random_durations = self.random_durations(_population_size)
         self._random_durations_population = [choice(self._random_durations) for _ in range(_population_size)]
@@ -330,6 +304,7 @@ class Population(object):
         self._chromosome = _chromosome
         self._unary_schema = _chromosome.unary_schema
         self._total_schema = _chromosome.total_schema
+        self._mutation_rate = _mutation_rate
         self._genesis_generation = [self._chromosome.random_chromosome(duration, assists)
                                     for duration in self._random_durations_population]
 
@@ -360,7 +335,6 @@ class Population(object):
         df_chromosomes['Chromosome'] = list_chromosomes
         df_chromosomes['Fitness'] = list_chromosomes_fitness
         self._current_generation = df_chromosomes
-        # self._current_generation = self.elite_class(self._population_size)
 
     @staticmethod
     def fitness_ratio(fitness_list):
@@ -370,17 +344,14 @@ class Population(object):
         return fitness_ratio_list
 
     def refine(self):
-        # self._current_generation = self._current_generation.drop_duplicates()
         if CROSSOVER_METHOD is 'new':
             self._current_generation = self.elite_class(self._population_size)
             self._current_generation['Fitness_ratio'] = self.fitness_ratio(self._current_generation['Fitness'])
             self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
-        # self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
         else:
             self._current_generation = self._current_generation.drop_duplicates()
             self._current_generation = self.elite_class(self._population_size)
             self._current_generation = self._similar_filtration(self._current_generation, SIMILARITY_FILTER)
-
         return self._current_generation
 
     @staticmethod
@@ -389,45 +360,34 @@ class Population(object):
 
     def crossover(self):
         crossover_threshold = CROSSOVER_THRESHOLD
-        # chosen_breeder_qty = int(crossover_threshold * self._population_size)
-
         fitness_ratio = self.fitness_ratio(self._current_generation['Fitness'])
         self._current_generation['Fitness_ratio'] = pd.Series(np.array(fitness_ratio),
                                                               index=self._current_generation.index)
         self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
-
         chosen_breeders = [self.random_ratio(self._current_generation) for _ in range(int(0.5*self._population_size))]
         random_mates = [self.random_ratio(self._current_generation) for _ in range(int(0.5*self._population_size))]
-
         if CROSSOVER_METHOD is 'new':
             fitness_ratio = self.fitness_ratio(self._current_generation['Fitness'])
             self._current_generation['Fitness_ratio'] = pd.Series(np.array(fitness_ratio),
                                                                   index=self._current_generation.index)
             self._current_generation['Fitness_cum'] = self._current_generation['Fitness_ratio'].cumsum()
-
         else:
             chosen_breeders = [self._current_generation['Chromosome'].tolist()[i]
                                for i in range(int(crossover_threshold*self._population_size))]
             random_mates = [choice(self._current_generation['Chromosome']) for _ in range(len(chosen_breeders))]
-
         pairs = zip(chosen_breeders, random_mates)
         children_chromosomes_zip = [self._chromosome.crossover(ch1, ch2) for ch1, ch2 in pairs]
         children_chromosomes = list([*zip(*children_chromosomes_zip)])[0]
-
         return children_chromosomes
 
     def mutate(self):
-        mutated_chromosomes = [self._chromosome.mutation(cromo) for cromo in
+        mutated_chromosomes = [self._chromosome.mutation(cromo, self._mutation_rate) for cromo in
                                self.current_generation['Chromosome'].tolist()]
-
         mutated_fitness = self.groups_fitness(mutated_chromosomes)
-
         mutated_df = pd.DataFrame()
         mutated_df['Fitness'] = mutated_fitness
         mutated_df['Chromosome'] = mutated_chromosomes
         collected_df = self._current_generation.append(mutated_df).drop_duplicates()
-
-        # self._current_generation = self._filter(collected_df, _population_size)
         self._current_generation = collected_df
         return self._current_generation
 
@@ -554,65 +514,241 @@ if __name__ == '__main__':
 
     if to_do[TO_DO] is 'evolve':
         # Population singleton setup.
-        _population_size = POPULATION_SIZE
-        Population = Population(Chromosome, _population_size=_population_size, assists='1')
-        count = 0
-        gen = []
-        fitness = []
-        title = 't4_P{}_M{}'.format(POPULATION_SIZE, MUTATION_RATE)
-        while True:
-            # Population.fittest < 5:
-            try:
-                result, top = Population.fittest['Fitness'][0], Population.fittest['Chromosome']
-                if result >= 2.4:
-                    EvolutionaryAlgorithim.save_generation(Population, title)
+        # MUTATION_RATE = 0.1
+        # POPULATION_SIZE = 100
+        dic = {'identifier': 'mumod2',
+               'process': [(600, 0.025), (600, 0.075), (600, 0.15)]}
 
-                print('Gen: {}'.format(Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
-                      'Chromosome: {}'.format(top))
-                gen.append(Population._generations)
-                fitness.append(result)
-                EvolutionaryAlgorithim.evolve(Population)
+        for pop,mut in dic['process']:
 
-                Population.refine()
-                count += 1
+            # _population_size = POPULATION_SIZE
+            _Population = Population(Chromosome, _population_size=pop, _mutation_rate=mut, assists='1')
+            count = 0
+            gen = []
+            fitness = []
+            title = '{}0_P{}_M{}'.format(dic['identifier'], pop, mut)
 
-            except (KeyboardInterrupt, SystemExit):
-                print('bye!')
-                EvolutionaryAlgorithim.save_generation(Population)
-                np.save(title+'_gen', np.array(gen))
-                np.save(title+'_fitness', np.array(fitness))
-                raise
+            while True:
+                # Population.fittest < 5:
+                try:
+                    result, top = _Population.fittest['Fitness'][0], _Population.fittest['Chromosome']
+                    if _Population._generations >= 50:
+                        print('next!')
+                        EvolutionaryAlgorithim.save_generation(_Population)
+                        np.save(title + '_gen', np.array(gen))
+                        np.save(title + '_fitness', np.array(fitness))
+                        break
+                    if result >= 2.4:
+                        EvolutionaryAlgorithim.save_generation(_Population, title)
+
+                    print('Gen: {}'.format(_Population._generations).ljust(20),'Fitness: {:0.2f}'.format(result).ljust(20),
+                          'Chromosome: {}'.format(top))
+                    gen.append(_Population._generations)
+                    fitness.append(result)
+                    EvolutionaryAlgorithim.evolve(_Population)
+
+                    _Population.refine()
+                    count += 1
+
+                except (KeyboardInterrupt, SystemExit):
+                    print('bye!')
+                    EvolutionaryAlgorithim.save_generation(_Population)
+                    np.save(title+'_gen', np.array(gen))
+                    np.save(title+'_fitness', np.array(fitness))
+                    raise
 
     if to_do[TO_DO] is 'other':
         dir =   '/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/'
-        plot_filenames = ['t3_P100_M0.05', 't3_P100_M0.1','t3_P100_M0.15', 't3_P100_M0.2', 't3_P100_M0.3']
-
-        for fn in plot_filenames:
-            plt.plot(np.load(dir+fn+'_gen.npy')[0:100],np.load(dir+fn+'_fitness.npy')[0:100], label='P={}, M={}'.format(fn.split('_')[1].replace('P',''), fn.split('_')[2].replace('M','')))
-
-        plt.legend()
-        plt.show()
-
-        # fitness1 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_fitness.npy')
-        # gen1 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_gen.npy')
+        # plot_filenames = ['t3_P100_M0.05', 't3_P100_M0.1','t3_P100_M0.15', 't3_P100_M0.2', 't3_P100_M0.3']
+        # for fn in plot_filenames:
+        #     plt.plot(np.load(dir+fn+'_gen.npy')[0:100],np.load(dir+fn+'_fitness.npy')[0:100], label='P={}, M={}'.format(fn.split('_')[1].replace('P',''), fn.split('_')[2].replace('M','')))
         #
-        # fitness2 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.1_fitness.npy')[0:150]
-        # gen2 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.1_gen.npy')[0:150]
-        #
-        # fitness3 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.3_fitness.npy')[0:150]
-        # gen3 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.3_gen.npy')[0:150]
-        #
-        # fitness4 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.05_fitness.npy')[0:150]
-        # gen4 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P100_M0.05_gen.npy')[0:150]
-        #
-        # fitness5 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P200_M0.1_fitness.npy')[0:150]
-        # gen5 = np.load('/home/samuel/Local Software/Local Projects/pluto_orbiter_2018/trajectory_tool/t3_P200_M0.1_gen.npy')[0:150]
-        #
-        #
-        # plt.plot(np.sqrt(gen1), fitness1, label='P=200, M=0.1')
-        # plt.plot(np.sqrt(gen2), fitness2, label='P=100, M=0.1')
-        # plt.plot(np.sqrt(gen3), fitness3, label='P=100, M=0.3')
-        # plt.plot(np.sqrt(gen4), fitness4, label='P=100, M=0.05')
-        # plt.plot(np.sqrt(gen5), fitness5, label='P=200, M=0.1')
         # plt.legend()
         # plt.show()
+
+        # def process_fitness(fitness_list):
+
+        # plot_filenames = [['t4_P100_M0.1', 't5_P100_M0.1', 't6_P100_M0.1', 't8_P100_M0.1'],
+        #                   ['t4_P100_M0.2', 't5_P100_M0.2', 't6_P100_M0.2', 't7_P100_M0.2', 't8_P100_M0.2'],
+        #                   ['t4_P100_M0.3', 't5_P100_M0.3', 't6_P100_M0.3', 't7_P100_M0.3', 't8_P100_M0.3']]
+
+        # plot_filenames = [['m1_P200_M0.1', 'm2_P200_M0.1'],
+        #                   ['m1_P400_M0.1', 'm2_P400_M0.1'],
+        #                   ['m1_P600_M0.1', 'm2_P600_M0.1']]
+
+        # plot_filenames = [['popmod0_P200_M0.1', 'popmod1_P200_M0.1', 'popmod2_P200_M0.1', 'popmod3_P200_M0.1', 'popmod4_P200_M0.1', 'popmod5_P200_M0.1', 'popmod6_P200_M0.1', 'popmod7_P200_M0.1'],
+        #                   ['popmod0_P400_M0.1', 'popmod1_P400_M0.1', 'popmod2_P400_M0.1', 'popmod3_P400_M0.1', 'popmod4_P400_M0.1', 'popmod5_P400_M0.1', 'popmod6_P400_M0.1', 'popmod7_P400_M0.1'],
+        #                   ['popmod0_P600_M0.1', 'popmod1_P600_M0.1', 'popmod2_P600_M0.1', 'popmod3_P600_M0.1', 'popmod4_P600_M0.1', 'popmod5_P600_M0.1', 'popmod6_P600_M0.1', 'popmod7_P600_M0.1']]
+
+        _type='bar'
+        plot_filenames = [['mumod0_P100_M0.025', 'mumod1_P100_M0.025', 'mumod2_P100_M0.025', 'mumod3_P100_M0.025', 'mumod4_P100_M0.025', 'mumod5_P100_M0.025', 'mumod6_P100_M0.025', 'mumod7_P100_M0.025'],
+                          ['mumod0_P100_M0.075', 'mumod1_P100_M0.075', 'mumod2_P100_M0.075', 'mumod3_P100_M0.075', 'mumod4_P100_M0.075', 'mumod5_P100_M0.075', 'mumod6_P100_M0.075', 'mumod7_P100_M0.075'],
+                          ['mumod0_P100_M0.15', 'mumod1_P100_M0.15', 'mumod2_P100_M0.15', 'mumod3_P100_M0.15', 'mumod4_P100_M0.15', 'mumod5_P100_M0.15', 'mumod6_P100_M0.15', 'mumod7_P100_M0.15']] # plt.style.use('ggplot')
+        plt.style.use(['default'])
+        colors = ['red', 'green', 'blue']
+        hatching = ['.', '/', '\\']
+        _linestyle = ['dashed', '-', '-.']
+        alpha = [0.20, 0.20, 0.09]
+        # plt.subplot(311)]                                                                                           p
+
+        if _type is 'convergence':
+            plt.figure(num=None, figsize=(8, 6), dpi=150, facecolor='w', edgecolor='k')
+            for idx,fn in enumerate(plot_filenames):
+                g1 = np.load(dir + fn[0] + '_gen.npy')[0:50]
+                g2 = np.load(dir + fn[1] + '_gen.npy')[0:50]
+                g3 = np.load(dir + fn[2] + '_gen.npy')[0:50]
+                g4 = np.load(dir + fn[3] + '_gen.npy')[0:50]
+                g5 = np.load(dir + fn[4] + '_gen.npy')[0:50]
+                g6 = np.load(dir + fn[5] + '_gen.npy')[0:50]
+                g7 = np.load(dir + fn[6] + '_gen.npy')[0:50]
+                g8 = np.load(dir + fn[7] + '_gen.npy')[0:50]
+
+                f1 = np.load(dir + fn[0] + '_fitness.npy')[0:50]
+                f2 = np.load(dir + fn[1] + '_fitness.npy')[0:50]
+                f3 = np.load(dir + fn[2] + '_fitness.npy')[0:50]
+                f4 = np.load(dir + fn[3] + '_fitness.npy')[0:50]
+                f5 = np.load(dir + fn[4] + '_fitness.npy')[0:50]
+                f6 = np.load(dir + fn[5] + '_fitness.npy')[0:50]
+                f7 = np.load(dir + fn[6] + '_fitness.npy')[0:50]
+                f8 = np.load(dir + fn[7] + '_fitness.npy')[0:50]
+
+
+
+                f_1 = f1 - np.min(f1)
+                f_2 = f2 - np.min(f2)
+                f_3 = f3 - np.min(f3)
+                f_4 = f4 - np.min(f4)
+                f_5 = f5 - np.min(f5)
+                f_6 = f6 - np.min(f6)
+                f_7 = f7 - np.min(f7)
+                f_8 = f8 - np.min(f8)
+                # f_3 = f3 - np.min(f3)
+                # f_4 = f4 - np.min(f4)
+
+                f_1 = f_1 / np.max(f_1) * 100
+                f_2 = f_2 / np.max(f_2) * 100
+                f_3 = f_3 / np.max(f_3) * 100
+                f_4 = f_4 / np.max(f_4) * 100
+                f_5 = f_5 / np.max(f_5) * 100
+                f_6 = f_6 / np.max(f_6) * 100
+                f_7 = f_7 / np.max(f_7) * 100
+                f_8 = f_8 / np.max(f_8) * 100
+                # f_3 = f_3 / np.max(f_3) * 100
+                # f_4 = f_4 / np.max(f_4) * 100
+
+                # y = np.array([np.mean([i,j,k,m]) for i,j,k,m in zip(f_1, f_2, f_3, f_4)])
+                # e = np.array([np.std([f_1[i], f_2[i], f_3[i], f_4[i]]) for i in range(len(g3))])
+
+                y = np.array([np.mean([i,j,l,m,m,o,p,q]) for i,j,l,m,n,o,p,q in zip(f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8)])
+                e = np.array([2*np.std([f_1[i], f_2[i], f_3[i], f_4[i], f_5[i], f_6[i], f_7[i], f_8[i]]) for i in range(len(g2))])
+
+                from scipy.interpolate import interp1d
+
+                x_new = np.arange(0, 49, 0.2)
+                # plt.subplot(3,1,idx+1)
+                print(y-e)
+                y_error_minus = interp1d(g2, y-e, kind='cubic')(x_new)
+
+                print(y_error_minus)
+                y_error_plus = interp1d(g2, y+e, kind='cubic')(x_new)
+                # y = [np.mean([i,j,k]) for i,j,k in (f_1, f_2, f_3)]
+
+                # plt.errorbar(g3, y, yerr=e, fmt='o', color=colors[idx], linewidth=0.5, ls=_linestyle[idx])
+                plt.plot(g2, y, color=colors[idx], linestyle=_linestyle[idx])
+                plt.fill_between(x_new, y_error_minus, y_error_plus, alpha=alpha[idx], color=colors[idx], hatch=hatching[idx], label='P={}, M={} | 2$\sigma$'.format(fn[0].split('_')[1].replace('P',''), fn[0].split('_')[2].replace('M','')))
+                plt.plot(g2, y, linestyle=_linestyle[idx], color=colors[idx], label='P={}, M={} | mean'.format(fn[0].split('_')[1].replace('P',''), fn[0].split('_')[2].replace('M','')))
+                # plt.legend()
+            plt.grid(b=True, which='both', color='0.65', linestyle='-')
+            plt.xlabel('Generation', fontsize=18)
+            plt.ylabel('Fitness Ratio [%]', fontsize=18)
+            plt.legend(fontsize=15)
+            plt.show()
+
+        if _type is 'bar':
+            means = []
+            stds=[]
+            group_names = []
+            # plt.figure(num=None, figsize=(8, 6), dpi=150, facecolor='w', edgecolor='k')
+            # plt.grid(b=True, which='both', color='0.65', linestyle='-')
+            for idx, fn in enumerate(plot_filenames):
+                g1 = np.load(dir + fn[0] + '_gen.npy')[0:50]
+                g2 = np.load(dir + fn[1] + '_gen.npy')[0:50]
+                g3 = np.load(dir + fn[2] + '_gen.npy')[0:50]
+                g4 = np.load(dir + fn[3] + '_gen.npy')[0:50]
+                g5 = np.load(dir + fn[4] + '_gen.npy')[0:50]
+                g6 = np.load(dir + fn[5] + '_gen.npy')[0:50]
+                g7 = np.load(dir + fn[6] + '_gen.npy')[0:50]
+                g8 = np.load(dir + fn[7] + '_gen.npy')[0:50]
+
+                f1 = np.load(dir + fn[0] + '_fitness.npy')[0:50]
+                f2 = np.load(dir + fn[1] + '_fitness.npy')[0:50]
+                f3 = np.load(dir + fn[2] + '_fitness.npy')[0:50]
+                f4 = np.load(dir + fn[3] + '_fitness.npy')[0:50]
+                f5 = np.load(dir + fn[4] + '_fitness.npy')[0:50]
+                f6 = np.load(dir + fn[5] + '_fitness.npy')[0:50]
+                f7 = np.load(dir + fn[6] + '_fitness.npy')[0:50]
+                f8 = np.load(dir + fn[7] + '_fitness.npy')[0:50]
+
+                f_1 = np.max(f1)
+                f_2 = np.max(f2)
+                f_3 = np.max(f3)
+                f_4 = np.max(f4)
+                f_5 = np.max(f5)
+                f_6 = np.max(f6)
+                f_7 = np.max(f7)
+                f_8 = np.max(f8)
+                # f_3 = f3 - np.min(f3)
+                # f_4 = f4 - np.min(f4)
+                print(f_1)
+                y = np.mean([f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8])
+                std2 = np.std([f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8])
+
+                means.append(y)
+                stds.append(std2)
+                group_names.append('P={}\nM={}'.format(fn[0].split('_')[1].replace('P',''), fn[0].split('_')[2].replace('M','')))
+
+            fig = plt.figure(num=None, figsize=(8, 6), dpi=150, facecolor='w', edgecolor='k')
+            plt.grid(b=True, which='both', color='0.65', linestyle='-')
+            ax = fig.add_subplot(111)
+
+            ## the data
+            N = 3
+            # = [18, 35, 30, 35, 27]
+            # menStd = [2, 3, 4, 1, 2]
+            # womenMeans = [25, 32, 34, 20, 25]
+            # womenStd = [3, 5, 2, 3, 3]
+
+            ## necessary variables
+            ind = np.arange(N)  # the x locations for the groups
+            width = 0.35  # the width of the bars
+            print(means, width)
+            ## the bars
+            rects1 = ax.bar(ind, means, width,
+                            color='blue',
+                            yerr=stds,
+                            error_kw=dict(elinewidth=5, ecolor='red'),
+                            alpha=0.6)
+
+            # rects2 = ax.bar(ind + width, womenMeans, width,
+            #                 color='red',
+            #                 yerr=womenStd,
+            #                 error_kw=dict(elinewidth=2, ecolor='black'))
+
+            # axes and labels
+            # ax.set_xlim(-width, len(ind) + width)
+            # ax.set_ylim(0, 15)
+            # ax.set_ylabel('')
+            xTickMarks = group_names
+            ax.set_xticks(ind)
+            xtickNames = ax.set_xticklabels(xTickMarks, fontsize=15)
+            # plt.setp(xtickNames, rotation=45, fontsize=10)
+
+            ## add a legend
+            # ax.legend((rects1[0]), ('Men'))
+            # plt.xlabel('Generation', fontsize=18)
+            plt.ylabel('Maximum fitness f(C)', fontsize=18)
+            # plt.legend(fontsize=15)
+            plt.show()
+
+
+

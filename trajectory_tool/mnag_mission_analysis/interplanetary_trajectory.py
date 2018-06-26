@@ -163,14 +163,38 @@ if __name__ == '__main__':
                                                         ejp.planetary_flyby[0].planetary_node.v_exit)
 
     with pd.option_context('display.max_rows', 100, 'display.max_columns', 100, 'display.width', 300):
-        np.set_printoptions(precision=3)
+        np.set_printoptions(precision=20)
         # print(tabulate(ejp.planetary_flyby[0].basic_dataframe, headers='keys', tablefmt='psql', floatfmt=".2f"))
         print(ejp.planetary_flyby[0].guess_dataframe)
         print(ejp.planetary_flyby[0].refined_dataframe)
         # print(ejp.planetary_flyby[0].refined_dataframe)
         # ejp.plot3D(interplanetary=True, flyby=True)
 
+        # print(ejp.planetary_flyb.y[0].planetary_node.epoch_entry)
+        print('Earth boundary condition')
+        print('-'*40)
+        print(ejp.planetary_departure.planetary_node.soi_exit_position_heliocentric)
+        print(ejp.planetary_departure.planetary_node.v_exit)
+        print(ejp.planetary_departure.planetary_node.epoch_periapsis)
 
+        print('Flyby entry')
+        print('-'*40)
+        print(ejp.planetary_flyby[0].planetary_node.epoch_entry)
+        print(ejp.planetary_flyby[0].planetary_node.soi_entry_position_heliocentric)
+        print(ejp.planetary_flyby[0].planetary_node.v_entry)
+
+        print('Flyby periapsis')
+        print('-'*40)
+        print(ejp.planetary_flyby[0].planetary_node.epoch_entry)
+        # print(ejp.planetary_flyby[0].planetary_node.r_p)
+        print(ejp.planetary_flyby[0].refined_attributes.v_p_f)
+
+        print('Flyby exit')
+        print('-'*40)
+        print(ejp.planetary_flyby[0].planetary_node.epoch_exit)
+        print(ejp.planetary_flyby[0].planetary_node.soi_exit_position_heliocentric)
+        print(ejp.planetary_flyby[0].planetary_node.v_exit)
+        # print(ejp.planetary_flyby[0].planetary_node.epoch_entry)
         # data = ejp.planetary_flyby[0].refined_attributes
         #
         # op = OrbitPlotter3D()
