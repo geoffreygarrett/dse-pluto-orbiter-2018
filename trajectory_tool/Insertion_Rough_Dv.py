@@ -46,7 +46,7 @@ V_inf_geoff = -Vp_geoff + Va_geoff
 DV_insertion1 = getDvInsertion(Va_initial, V_pluto, DV_electric, mu2, rp, e_cap)
 DV_insertion_geoff = getDvInsertion(Va_geoff, Vp_geoff, DV_electric, mu2, rp, e_cap)
 
-eccs = np.arange(0,1, 0.001)
+eccs = np.arange(0.144,0.216, 0.009)
 DV_insertions = []
 straight_dvs = []
 for ecc in eccs:
@@ -59,8 +59,13 @@ for ecc in eccs:
     straight_dvs.append(straight_line(ecc, m, c))
 
 plt.plot(eccs, DV_insertions)
-plt.plot(eccs, straight_dvs)
+#plt.plot(eccs, straight_dvs)
 plt.xlabel('ecc')
 plt.ylabel('DV_insertion')
 plt.grid()
 plt.show()
+
+
+#####################################################################################
+#Sensitivity
+
